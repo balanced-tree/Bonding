@@ -10,6 +10,9 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+/// @title CurveFactory
+/// @notice Factory for creating Curve contracts
+/// @author balanced-tree
 contract CurveFactory is ICurveFactory {
   using EnumerableSet for EnumerableSet.AddressSet;
   using SafeERC20 for IERC20;
