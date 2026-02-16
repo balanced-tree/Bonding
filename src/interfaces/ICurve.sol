@@ -34,5 +34,5 @@ interface ICurve {
     /*//////////////////////////////////////////////////////////////
                                 FUNCTIONS
     //////////////////////////////////////////////////////////////*/
-    function initialize(CurveConfig calldata config) external;
+    // function initialize(CurveConfig calldata config) external;
 }
