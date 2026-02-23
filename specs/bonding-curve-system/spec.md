@@ -30,7 +30,7 @@ Curves can optionally include linear token vesting and have configurable graduat
 
 ### Non-Functional
 
-- **Multi-chain**: Deployable on Ethereum L1 and L2s (Base, Arbitrum, etc.) without modification.
+- **Multi-chain**: Deployable on Ethereum L1 and L2s (Base and Optimism) without modification.
 - **Gas Efficiency**: Clone proxies for curve and vesting deployments. Library-based pricing (no external calls for price calculation).
 - **Precision**: PRBMath SD59x18/UD60x18 fixed-point arithmetic for all pricing formulas.
 - **Security**: ReentrancyGuard on all state-changing external functions. SafeERC20 for all token transfers. Checks-effects-interactions pattern throughout.
