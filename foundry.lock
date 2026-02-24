@@ -13,5 +13,14 @@
       "name": "v5.5.0",
       "rev": "aa677e9d28ed78fc427ec47ba2baef2030c58e7c"
     }
+  },
+  "lib/prb-math": {
+    "tag": {
+      "name": "v4.1.1",
+      "rev": "b51e8631ed28d3cc917c491dd47cd6c3ff652edc"
+    }
+  },
+  "lib/solidity-trigonometry": {
+    "rev": "58af3a912ab3e2203cf21189012caefe24471e29"
   }
 }
