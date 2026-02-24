@@ -70,5 +70,8 @@ contract CurveFactory is ICurveFactory {
     /*//////////////////////////////////////////////////////////////
                               CURVE CREATION
     //////////////////////////////////////////////////////////////*/
-    
+    function createCurve(CurveConfig calldata config) external returns (address curve) {
+
+    }
+
 }
