@@ -259,7 +259,7 @@ User                  CurveFactory       Curve          PriceLib        Token   
 | **Phase 1: Core Bonding Curve** | CurveFactory, Curve, Token, PriceLib, LinearLib + ParabolicLib, interfaces, core tests | ~1,800 |
 | **Phase 2: Advanced Formulas** | LnLib, SinLib, ExponentialLib, SigmoidLib + formula fuzz tests | ~900 |
 | **Phase 3: Graduation** | GraduationManager, Uniswap V4 integration, graduation tests | ~700 |
-| **Phase 4: Vesting + Hardening** | Vesting.sol, whitelist logic, invariant tests, integration tests | ~800 |
+| **Phase 4: Vesting + Hardening** | Vesting.sol, invariant tests, integration tests | ~800 |
 
 ---
 
