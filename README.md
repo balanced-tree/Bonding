@@ -43,7 +43,7 @@ A permissionless bonding curve protocol where anyone can deploy configurable bon
 | `PriceLib.sol` | Pure library for piecewise price calculations. Routes to formula-specific sub-libraries (`LinearLib`, `LnLib`, `SinLib`, `ParabolicLib`, `ExponentialLib`, `SigmoidLib`). |
 | `Vesting.sol` | Optional linear token vesting with cliff. Purchased tokens lock in a Vesting clone and release linearly over a configured duration. |
 | `GraduationManager.sol` | Singleton that creates a Uniswap V4 pool and migrates liquidity when a curve graduates. |
-| `Token (ERC20)` | Plain ERC20Upgradeable with minter-restricted mint/burn. Created by the factory alongside each curve. |
+| `Token (ERC20)` | ERC20Upgradeable deployed as an EIP-1167 clone proxy. Uses `Initializable` for clone-compatibility (not for upgradeability — clones point to a fixed implementation). Minter-restricted mint/burn. Created by the factory alongside each curve. |
 
 ### Interfaces
 
