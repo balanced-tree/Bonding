@@ -377,7 +377,7 @@ User                  CurveFactory       Curve          PriceLib        Token   
 | Vesting model? | Linear vesting with cliff, optional per curve | User |
 | Collateral tokens? | Any ERC20 | User |
 | Fixed-point math? | PRBMath SD59x18/UD60x18 | User |
-| Anti-manipulation? | Full: slippage + max per-tx + optional whitelist phase | User |
+| Anti-manipulation? | Full: slippage + max per-tx limits | User |
 | Token standard? | Plain ERC20 (no permit, no votes) | User |
 | Target chain? | Multi-chain (L1 + L2) | User |
 | Formula set? | Linear, Ln, Sin, Parabolic, Exponential, Sigmoid (6 total) | User |
