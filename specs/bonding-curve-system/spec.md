@@ -26,7 +26,7 @@ Curves can optionally include linear token vesting and have configurable graduat
 5. **Protocol Fee**: A fixed percentage fee is deducted from every buy/sell transaction and sent to a protocol treasury address.
 6. **Graduation**: When a curve's collateral or supply reaches the configured max threshold, the curve triggers graduation via `GraduationManager`, which creates a Uniswap V4 pool and migrates liquidity.
 7. **Vesting (Optional)**: Curve creators can enable linear vesting with a cliff. Purchased tokens are locked in a `Vesting` contract and release linearly over the configured duration.
-8. **Anti-Manipulation**: Slippage protection on all trades, max buy/sell limits per transaction, and an optional whitelist phase for early buyers.
+8. **Anti-Manipulation**: Slippage protection on all trades and max buy/sell limits per transaction.
 
 ### Non-Functional
 
@@ -104,8 +104,6 @@ Curves can optionally include linear token vesting and have configurable graduat
   - `bool public graduated` — Whether the curve has graduated
   - `uint256 public maxBuyPerTx` — Max tokens purchasable per transaction
   - `uint256 public maxSellPerTx` — Max tokens sellable per transaction
-  - `mapping(address => bool) public whitelisted` — Optional whitelist
-  - `bool public whitelistActive` — Whether whitelist phase is active
 - **Key Functions**:
   - `initialize(...)` — Called by factory after clone deployment
   - `buy(uint256 collateralAmount, uint256 minTokensOut)` — Buy tokens with slippage protection
@@ -115,7 +113,7 @@ Curves can optionally include linear token vesting and have configurable graduat
   - `getBuyQuote(uint256 collateralAmount)` — View: returns tokens receivable for a collateral amount
   - `getSellQuote(uint256 tokenAmount)` — View: returns collateral receivable for a token amount
 - **Buy Flow**:
-  1. Check not graduated, check whitelist if active, check max per tx
+  1. Check not graduated, check max per tx
   2. Calculate tokens to mint via `PriceLib.calculateBuyTokens(segments, currentSupply, collateralAmount)`
   3. Check `minTokensOut` slippage
   4. Deduct protocol fee from collateral, transfer fee to treasury
@@ -237,7 +235,7 @@ User                  CurveFactory       Curve          PriceLib        Token   
 | Component | Estimated LoC | Details |
 |-----------|--------------|---------|
 | CurveFactory.sol | ~200 | Clone deployment, registry, createCurve overloads |
-| Curve.sol | ~350 | Buy/sell, initialization, graduation trigger, limits, whitelist |
+| Curve.sol | ~350 | Buy/sell, initialization, graduation trigger, limits |
 | GraduationManager.sol | ~180 | Uniswap V4 pool creation + liquidity migration |
 | Vesting.sol | ~150 | Linear vesting with cliff, claim logic |
 | Token (ERC20) | ~60 | Plain ERC20 with minter-only mint/burn |

@@ -39,7 +39,7 @@ A permissionless bonding curve protocol where anyone can deploy configurable bon
 | Contract | Role |
 |----------|------|
 | `CurveFactory.sol` | Entry point. Deploys Curve + Token + Vesting clones via EIP-1167 minimal proxies. Maintains an EnumerableSet registry of all deployed curves. |
-| `Curve.sol` | Core bonding curve. Handles buy/sell with slippage protection, fee collection, max per-tx limits, optional whitelist phase, and graduation trigger. |
+| `Curve.sol` | Core bonding curve. Handles buy/sell with slippage protection, fee collection, max per-tx limits, and graduation trigger. |
 | `PriceLib.sol` | Pure library for piecewise price calculations. Routes to formula-specific sub-libraries (`LinearLib`, `LnLib`, `SinLib`, `ParabolicLib`, `ExponentialLib`, `SigmoidLib`). |
 | `Vesting.sol` | Optional linear token vesting with cliff. Purchased tokens lock in a Vesting clone and release linearly over a configured duration. |
 | `GraduationManager.sol` | Singleton that creates a Uniswap V4 pool and migrates liquidity when a curve graduates. |
@@ -58,7 +58,7 @@ A permissionless bonding curve protocol where anyone can deploy configurable bon
 
 - **Protocol Fee** — Fixed percentage fee (in basis points) on every buy/sell, sent to a protocol treasury. Immutable at deployment.
 - **Vesting (Optional)** — Linear vesting with cliff period. When enabled, purchased tokens route to a Vesting contract instead of the buyer directly.
-- **Anti-Manipulation** — Slippage protection (`minTokensOut` / `minCollateralOut`), max buy/sell limits per transaction, and an optional whitelist phase for early buyers.
+- **Anti-Manipulation** — Slippage protection (`minTokensOut` / `minCollateralOut`) and max buy/sell limits per transaction.
 - **Permissionless** — No admin roles, no upgradeability, no pause mechanisms.
 - **Multi-chain** — Deployable on Ethereum L1 and L2s (Base, Optimism) without modification.
 - **Gas Efficient** — EIP-1167 clone proxies for Curve and Vesting deployments. Library-based pricing with no external calls.
@@ -66,7 +66,7 @@ A permissionless bonding curve protocol where anyone can deploy configurable bon
 ## Buy / Sell Flow
 
 **Buy:**
-1. Check curve has not graduated; check whitelist if active; check max per-tx limit
+1. Check curve has not graduated; check max per-tx limit
 2. Calculate tokens to mint via `PriceLib.calculateBuyTokens(segments, currentSupply, collateralAmount)`
 3. Enforce slippage (`minTokensOut`)
 4. Deduct protocol fee from collateral, transfer fee to treasury
