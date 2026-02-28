@@ -195,10 +195,11 @@ struct PiecewiseSegment {
 - **Vesting Math**: `unlocked = total * (block.timestamp - startTime - cliff) / vestingDuration`
 
 #### Token Contract (ERC20, created by factory)
-- Plain `ERC20Upgradeable` with `Initializable`
+- `ERC20Upgradeable` with `Initializable` — deployed as an EIP-1167 clone proxy (see [design choice rationale](#token-contract-design-choice) below)
 - **Minting/Burning**: Only the associated `Curve.sol` contract can mint and burn
 - **No extensions**: No permit, no votes, no other features for MVP
 - **Initialized via**: `initialize(string name, string symbol, uint8 decimals, address minter)`
+- **Implementation safety**: The implementation contract's constructor must call `_disableInitializers()` to prevent direct initialization of the implementation
 
 ### Interfaces
 
