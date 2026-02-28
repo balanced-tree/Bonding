@@ -9,21 +9,6 @@ A permissionless bonding curve protocol where anyone can deploy configurable bon
 3. **Sell Tokens** — Burn curve tokens to receive collateral back. Price follows the same curve in reverse.
 4. **Graduate** — When a curve reaches its max threshold, a `GraduationManager` migrates liquidity to a Uniswap V4 pool.
 
-## Supported Formula Types
-
-Each curve defines 1–3 piecewise segments. Six formula types are available:
-
-| Formula | Price Function `p(s)` | Parameters |
-|---------|----------------------|------------|
-| **Linear** | `m * s + b` | slope, intercept |
-| **Logarithmic** | `a * ln(s + c) + b` | scale, offset, shift |
-| **Sinusoidal** | `a * sin(w*s + phi) + b` | amplitude, frequency, phase, offset |
-| **Parabolic** | `a * s² + b * s + c` | coefficients |
-| **Exponential** | `a * e^(k*s) + b` | scale, growth rate, offset |
-| **Sigmoid** | `L / (1 + e^(-k*(s - s₀))) + b` | max, steepness, midpoint, offset |
-
-All math uses [PRBMath](https://github.com/PaulRBerg/prb-math) SD59x18 fixed-point arithmetic (18 decimal places). Prices are computed via definite integrals of the price function over supply ranges (area under the curve).
-
 ## Architecture
 
 ```
@@ -96,6 +81,21 @@ All math uses [PRBMath](https://github.com/PaulRBerg/prb-math) SD59x18 fixed-poi
 4. Burn tokens from seller
 5. Deduct protocol fee from collateral, transfer fee to treasury
 6. Transfer remaining collateral to seller
+
+## Supported Formula Types
+
+Each curve defines 1–3 piecewise segments. Six formula types are available:
+
+| Formula | Price Function `p(s)` | Parameters |
+|---------|----------------------|------------|
+| **Linear** | `m * s + b` | slope, intercept |
+| **Logarithmic** | `a * ln(s + c) + b` | scale, offset, shift |
+| **Sinusoidal** | `a * sin(w*s + phi) + b` | amplitude, frequency, phase, offset |
+| **Parabolic** | `a * s² + b * s + c` | coefficients |
+| **Exponential** | `a * e^(k*s) + b` | scale, growth rate, offset |
+| **Sigmoid** | `L / (1 + e^(-k*(s - s₀))) + b` | max, steepness, midpoint, offset |
+
+All math uses [PRBMath](https://github.com/PaulRBerg/prb-math) SD59x18 fixed-point arithmetic (18 decimal places). Prices are computed via definite integrals of the price function over supply ranges (area under the curve).
 
 ## Getting Started
 
