@@ -305,7 +305,6 @@ User                  CurveFactory       Curve          PriceLib        Token   
 - [ ] Implement `Vesting.sol` (initialize, addVesting, claim, claimable)
 - [ ] Update `Curve.sol` buy flow to route tokens to Vesting when enabled
 - [ ] Update `CurveFactory.sol` to deploy Vesting clones when configured
-- [ ] Implement whitelist phase logic in `Curve.sol`
 - [ ] Write unit tests for Vesting.sol (cliff, linear unlock, claim)
 - [ ] Write integration tests for buy-with-vesting flow
 - [ ] Write invariant tests:
