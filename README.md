@@ -59,7 +59,7 @@ A permissionless bonding curve protocol where anyone can deploy configurable bon
 - **Protocol Fee** — Fixed percentage fee (in basis points) on every buy/sell, sent to a protocol treasury. Immutable at deployment.
 - **Vesting (Optional)** — Linear vesting with cliff period. When enabled, purchased tokens route to a Vesting contract instead of the buyer directly.
 - **Anti-Manipulation** — Slippage protection (`minTokensOut` / `minCollateralOut`) and max buy/sell limits per transaction.
-- **Permissionless** — No admin roles, no upgradeability, no pause mechanisms.
+- **Permissionless** — No admin roles, no pause mechanisms, no logic upgradeability. EIP-1167 clones point to fixed implementations.
 - **Multi-chain** — Deployable on Ethereum L1 and L2s (Base, Optimism) without modification.
 - **Gas Efficient** — EIP-1167 clone proxies for Curve and Vesting deployments. Library-based pricing with no external calls.
 
