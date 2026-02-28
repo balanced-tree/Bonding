@@ -34,7 +34,8 @@ Curves can optionally include linear token vesting and have configurable graduat
 - **Gas Efficiency**: Clone proxies for curve and vesting deployments. Library-based pricing (no external calls for price calculation).
 - **Precision**: PRBMath SD59x18/UD60x18 fixed-point arithmetic for all pricing formulas.
 - **Security**: ReentrancyGuard on all state-changing external functions. SafeERC20 for all token transfers. Checks-effects-interactions pattern throughout.
-- **Permissionless**: No admin roles, no upgradeability, no pause mechanisms. Protocol fee is immutable at deployment.
+- **Permissionless**: No admin roles, no pause mechanisms. Protocol fee is immutable at deployment.
+- **Immutable Logic**: Contracts deployed as EIP-1167 minimal clones are not upgradeable — clones point to a fixed implementation and cannot be re-pointed. The use of `ERC20Upgradeable` and `Initializable` is purely for clone-compatibility (clones do not run constructors), not for upgradeability. See [Token Contract Design Choice](#token-contract-design-choice) below.
 
 ---
 
