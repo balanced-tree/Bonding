@@ -97,6 +97,16 @@ Each curve defines 1–3 piecewise segments. Six formula types are available:
 
 All math uses [PRBMath](https://github.com/PaulRBerg/prb-math) SD59x18 fixed-point arithmetic (18 decimal places). Prices are computed via definite integrals of the price function over supply ranges (area under the curve).
 
+## Design Notes
+
+### Why ERC20Upgradeable for a Non-Upgradeable Token?
+
+All per-curve contracts (Curve, Vesting, and Token) are deployed as [EIP-1167 minimal clone proxies](https://eips.ethereum.org/EIPS/eip-1167). Clones are ~45-byte contracts that `delegatecall` to a shared, **fixed** implementation. Because constructors don't run on clones, the token needs an `initialize()` function to set its name, symbol, and minter — which is what `ERC20Upgradeable` provides.
+
+**This does NOT make the token upgradeable.** Unlike UUPS or Transparent Proxy patterns, EIP-1167 clones cannot be re-pointed to a different implementation. The implementation address is hardcoded in the clone's bytecode at deploy time. The `Upgradeable` in the name refers only to initializer-compatibility, not actual upgradeability.
+
+For full design rationale, see [specs/bonding-curve-system/spec.md](specs/bonding-curve-system/spec.md#token-contract-design-choice).
+
 ## Getting Started
 
 ### Prerequisites
