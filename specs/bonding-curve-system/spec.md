@@ -422,7 +422,7 @@ A: Fully permissionless. No admin, no pause, no upgradeability. Fee is immutable
 A: PRBMath (SD59x18/UD60x18) by Paul Razvan Berg. Industry standard.
 
 **Q: Anti-manipulation?**
-A: Full protection — slippage protection (min out params), max buy/sell per transaction, optional whitelist phase for early buyers.
+A: Full protection — slippage protection (min out params), max buy/sell per transaction.
 
 **Q: Chain target?**
 A: Multi-chain. Designed to deploy on Ethereum L1 and L2s without modification.
