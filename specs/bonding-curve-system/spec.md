@@ -201,6 +201,33 @@ struct PiecewiseSegment {
 - **Initialized via**: `initialize(string name, string symbol, uint8 decimals, address minter)`
 - **Implementation safety**: The implementation contract's constructor must call `_disableInitializers()` to prevent direct initialization of the implementation
 
+#### Token Contract Design Choice
+
+The token uses OpenZeppelin's `ERC20Upgradeable` + `Initializable` despite the protocol having **no upgradeability**. This is intentional and warrants explanation:
+
+**Why `ERC20Upgradeable` instead of plain `ERC20`?**
+
+All per-curve contracts (Curve, Vesting, **and Token**) are deployed as [EIP-1167 minimal clone proxies](https://eips.ethereum.org/EIPS/eip-1167). Clones are tiny (~45 byte) contracts that `delegatecall` to a shared implementation. Because clone proxies do not execute the implementation's constructor, state initialization must happen via an `initialize()` function — which is exactly what `ERC20Upgradeable` provides.
+
+**Key distinction: clone proxies ≠ upgradeable proxies**
+
+| Property | EIP-1167 Clone (this project) | UUPS / Transparent Proxy |
+|----------|-------------------------------|--------------------------|
+| Implementation can be changed | No — hardcoded at deploy time | Yes — admin can point to new logic |
+| Requires `Initializable` | Yes — constructor doesn't run | Yes — constructor doesn't run |
+| Upgrade risk | None | Admin key compromise, storage collisions |
+| Gas to deploy | ~45 bytes, very cheap | ~200+ bytes, moderate |
+
+**Security requirements for this pattern:**
+1. The token implementation contract must call `_disableInitializers()` in its constructor to prevent anyone from initializing the implementation directly
+2. The `initializer` modifier ensures each clone can only be initialized once
+3. The factory deploys and initializes clones atomically in `createCurve()`, preventing front-running
+
+**Alternative considered: plain `ERC20` via `new Token(...)`**
+- Simpler mental model, no proxy layer, no initialization concerns
+- Higher gas cost per token deployment (full bytecode deployed each time vs. 45-byte clone)
+- Rejected because the clone pattern is already used for Curve and Vesting — using it for Token too keeps the architecture consistent and gas-efficient, especially important for L1 deployments
+
 ### Interfaces
 
 | Interface | Key Definitions |
@@ -418,7 +445,7 @@ A: Add exponential (e^x) and sigmoid (S-curve) to the existing set. 6 formulas t
 A: Pure library approach. PriceLib is a Solidity library used directly by Curve.sol. No clone proxy needed.
 
 **Q: Access control?**
-A: Fully permissionless. No admin, no pause, no upgradeability. Fee is immutable.
+A: Fully permissionless. No admin, no pause, no logic upgradeability. Clones point to fixed implementations. Fee is immutable.
 
 **Q: Fixed-point math?**
 A: PRBMath (SD59x18/UD60x18) by Paul Razvan Berg. Industry standard.
