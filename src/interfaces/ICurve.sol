@@ -25,18 +25,6 @@ interface ICurve {
                               FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Returns the current spot price of the token on the bonding curve
-    /// @return The current price in collateral per token (18-decimal fixed point)
-    function getPrice() external view returns (uint256);
-
-    /// @notice Returns the address of the ERC20 token managed by this curve
-    /// @return The bonding curve token address
-    function getTokenAddress() external view returns (address);
-
-    /// @notice Returns the address of the collateral token used for buys and sells
-    /// @return The collateral token address
-    function getCollateralAddress() external view returns (address);
-
     /// @notice Buy tokens by depositing collateral into the bonding curve
     /// @dev Transfers collateral from the caller, mints tokens, and collects a fee.
     ///      Reverts if the output falls below `minTokensOut` (slippage protection).
@@ -52,6 +40,18 @@ interface ICurve {
     /// @param minCollateralOut The minimum acceptable collateral to receive (slippage guard)
     /// @return collateralOut The actual amount of collateral returned to the seller
     function sell(uint256 tokenAmount, uint256 minCollateralOut) external returns (uint256 collateralOut);
+
+    /// @notice Returns the current spot price of the token on the bonding curve
+    /// @return The current price in collateral per token (18-decimal fixed point)
+    function getPrice() external view returns (uint256);
+
+    /// @notice Returns the address of the ERC20 token managed by this curve
+    /// @return The bonding curve token address
+    function getTokenAddress() external view returns (address);
+
+    /// @notice Returns the address of the collateral token used for buys and sells
+    /// @return The collateral token address
+    function getCollateralAddress() external view returns (address);
 
     /// @notice Returns a quote for how many tokens would be received for a given collateral amount
     /// @dev Does not execute a trade; read-only preview of a buy
