@@ -22,7 +22,7 @@ interface ICurveFactory {
                               FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     function createCurve(CreateCurveParams calldata params) external returns (address curve);
-    function getCurves() external view returns (address[] memory);
     function getCurveCount() external view returns (uint256);
     function isCurve(address curve) external view returns (bool);
+    function getCurves() external view returns (address[] memory);
 }
