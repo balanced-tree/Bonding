@@ -14,21 +14,20 @@ interface ICurve {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
-    error ALREADY_GRADUATED();
-    error SLIPPAGE_EXCEEDED();
     error INVALID_AMOUNT();
+    error SLIPPAGE_EXCEEDED();
+    error ALREADY_GRADUATED();
     error EXCEEDS_MAX_PER_TX();
-    error ZERO_TOKENS_OUT();
     error ZERO_COLLATERAL_OUT();
     error NOT_GRADUATED();
 
     /*//////////////////////////////////////////////////////////////
                               FUNCTIONS
     //////////////////////////////////////////////////////////////*/
+    function getPrice() external view returns (uint256);
     function buy(uint256 collateralAmount, uint256 minTokensOut) external returns (uint256 tokensOut);
     function sell(uint256 tokenAmount, uint256 minCollateralOut) external returns (uint256 collateralOut);
-    function graduate() external;
-    function getPrice() external view returns (uint256);
     function getBuyQuote(uint256 collateralAmount) external view returns (uint256 tokensOut);
     function getSellQuote(uint256 tokenAmount) external view returns (uint256 collateralOut);
+    function graduateCurve() external;
 }
