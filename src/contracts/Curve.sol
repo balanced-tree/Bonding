@@ -2,9 +2,10 @@
 pragma solidity 0.8.30;
 
 import { 
-    CurveParams, 
+    CurveParams,
+    VestingConfig,
     PiecewiseSegment, 
-    VestingConfig 
+    CreateCurveParams
 } from "../Types.sol";
 import { ICurve } from "../interfaces/ICurve.sol";
 import { IVesting } from "../interfaces/IVesting.sol";
@@ -19,20 +20,44 @@ import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/Reentran
 import { ERC20Upgradeable } from "@openzeppelin-contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { Initializable } from "@openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 
-abstract contract Curve is ICurve, Initializable, ReentrancyGuardTransient {
+abstract contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
     /*//////////////////////////////////////////////////////////////
                               STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
-    address public immutable token;
-    address public immutable vesting;
-    address public immutable treasury;
+    address public token;
+    address public vesting;
+    address public treasury;
 
-    uint256 public immutable protocolFeeBps;
+    uint256 public protocolFeeBps;
 
     bool public graduated;
     bool public initialized;
+    
+    /*//////////////////////////////////////////////////////////////
+                              CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
+    constructor() {}
+
+    /*//////////////////////////////////////////////////////////////
+                            INITIALIZATION
+    //////////////////////////////////////////////////////////////*/
+    function initialize(
+        address _token,
+        address _vesting,
+        address _treasury,
+        uint256 _protocolFeeBps,
+        CreateCurveParams memory params
+    ) external initializer {
+        if (initialized) revert ALREADY_INITIALIZED();
+        initialized = true;
+
+        token = _token;
+        vesting = _vesting;
+        treasury = _treasury;
+        protocolFeeBps = _protocolFeeBps;
+    }
 
 }
