@@ -10,4 +10,5 @@ import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/Reentran
 
 contract GraduationManager is Initializable, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
+    using Math for uint256;
 }
