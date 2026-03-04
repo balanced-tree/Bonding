@@ -25,6 +25,7 @@ contract CurveFactory is ICurveFactory {
     address public protocolTreasury;
 
     address public immutable CURVE_IMPLEMENTATION;
+    address public immutable TOKEN_IMPLEMENTATION;
     address public immutable VESTING_IMPLEMENTATION;
     address public immutable GRADUATION_MANAGER_IMPLEMENTATION;
     
