@@ -99,8 +99,16 @@ contract CurveFactory is ICurveFactory {
           vestingInstance = VESTING_IMPLEMENTATION.cloneDeterministic(salt);
         }
         
+        // Initialize the curve
         Curve(curveInstance).initialize(tokenInstance, vestingInstance, protocolTreasury, protocolFeeBps, config);
         
+        // Initialize the token
+        BondingToken(tokenInstance).initialize(config.name, config.symbol, config.decimals, curveInstance);
+
+        // Initialize the graduation manager
+        //GraduationManager(graduationManagerInstance).initialize(curveInstance, tokenInstance, config.curveParams.collateralToken);
+
+        // Initialize the vesting
         _curves.add(curveInstance);
         _tokens.add(tokenInstance);
     }
