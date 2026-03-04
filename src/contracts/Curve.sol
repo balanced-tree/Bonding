@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
+import { 
+    CurveParams, 
+    PiecewiseSegment, 
+    VestingConfig 
+} from "../Types.sol";
 import { ICurve } from "../interfaces/ICurve.sol";
 import { IVesting } from "../interfaces/IVesting.sol";
 
@@ -17,5 +22,17 @@ import { Initializable } from "@openzeppelin-contracts-upgradeable/proxy/utils/I
 abstract contract Curve is ICurve, Initializable, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
     using Math for uint256;
+
+    /*//////////////////////////////////////////////////////////////
+                              STATE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+    address public immutable token;
+    address public immutable vesting;
+    address public immutable treasury;
+
+    uint256 public immutable protocolFeeBps;
+
+    bool public graduated;
+    bool public initialized;
 
 }
