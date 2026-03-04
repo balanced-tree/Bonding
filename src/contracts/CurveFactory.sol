@@ -1,6 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
+import {
+  CurveParams,
+  VestingConfig,
+  CreateCurveParams,
+  PiecewiseSegment,
+  FormulaParams,
+  FormulaType
+} from "../Types.sol";
+import { Curve } from "./Curve.sol";
+import { Vesting } from "./Vesting.sol";
+import { BondingToken } from "./BondingToken.sol";
+import { GraduationManager } from "./GraduationManager.sol";
 import { ICurveFactory } from "../interfaces/ICurveFactory.sol";
 
 // OpenZeppelin Contracts
@@ -30,12 +42,13 @@ contract CurveFactory is ICurveFactory {
     address public immutable GRADUATION_MANAGER_IMPLEMENTATION;
     
     EnumerableSet.AddressSet private _curves;
-    EnumerableSet.AddressSet private _vestings;
-    EnumerableSet.AddressSet private _graduationManagers;
+    EnumerableSet.AddressSet private _tokens;
 
     uint256 public protocolFeeBps;
     // Constant for basis points precision (100% = 10,000 bps)
     uint256 private constant BPS_PRECISION = 10_000;
+
+    mapping(address curve => address token) public curveToToken;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -71,8 +84,25 @@ contract CurveFactory is ICurveFactory {
     /*//////////////////////////////////////////////////////////////
                               CURVE CREATION
     //////////////////////////////////////////////////////////////*/
-    function createCurve(CurveConfig calldata config) external returns (address curve) {
+    function createCurve(CreateCurveParams calldata config) external returns (address curve) {
+        if (config.curveParams.collateralToken == address(0) || config.curveParams.segments.length == 0) {
+            revert INVALID_CONFIG();
+        }
 
+        bytes32 salt = keccak256(abi.encode(config));
+        address curveInstance = CURVE_IMPLEMENTATION.cloneDeterministic(salt);
+        address tokenInstance = TOKEN_IMPLEMENTATION.cloneDeterministic(salt);
+        address graduationManagerInstance = GRADUATION_MANAGER_IMPLEMENTATION.cloneDeterministic(salt);
+
+        address vestingInstance;
+        if (config.vestingConfig.cliffDuration > 0 && config.vestingConfig.vestingDuration > 0) {
+          vestingInstance = VESTING_IMPLEMENTATION.cloneDeterministic(salt);
+        }
+        
+        Curve(curveInstance).initialize(tokenInstance, vestingInstance, protocolTreasury, protocolFeeBps, config);
+        
+        _curves.add(curveInstance);
+        _tokens.add(tokenInstance);
     }
 
 }
