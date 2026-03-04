@@ -20,6 +20,7 @@ interface ICurve {
     error ALREADY_GRADUATED();
     error EXCEEDS_MAX_PER_TX();
     error ZERO_COLLATERAL_OUT();
+    error ALREADY_INITIALIZED();
     error INVALID_CONFIGURATION();
 
     /*//////////////////////////////////////////////////////////////
