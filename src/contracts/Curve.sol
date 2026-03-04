@@ -9,6 +9,7 @@ import {
 } from "../Types.sol";
 import { ICurve } from "../interfaces/ICurve.sol";
 import { IVesting } from "../interfaces/IVesting.sol";
+import { IBondingToken } from "../interfaces/IBondingToken.sol";
 
 // OpenZeppelin Contracts
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -28,13 +29,19 @@ abstract contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
                               STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
     address public token;
+    address public collateralToken;
+
     address public vesting;
     address public treasury;
 
+    uint256 public maxBuyPerTx;
+    uint256 public maxSellPerTx;
+    uint256 public maxThreshold;
     uint256 public protocolFeeBps;
 
     bool public graduated;
-    bool public initialized;
+
+    PiecewiseSegment[] public segments;
     
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -53,19 +60,23 @@ abstract contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     /// @param _protocolFeeBps The protocol fee in basis points
     /// @param params The parameters for the curve
     function initialize(
-        address _token,
         address _vesting,
         address _treasury,
         uint256 _protocolFeeBps,
         CreateCurveParams memory params
     ) external initializer {
-        if (initialized) revert ALREADY_INITIALIZED();
-        initialized = true;
-
-        token = _token;
+        // Initialize state variables
         vesting = _vesting;
         treasury = _treasury;
         protocolFeeBps = _protocolFeeBps;
+
+        segments = params.curveParams.segments;
+        maxBuyPerTx = params.curveParams.maxBuyPerTx;
+        maxSellPerTx = params.curveParams.maxSellPerTx;
+        maxThreshold = params.curveParams.maxThreshold;
+        collateralToken = params.curveParams.collateralToken;
+
+        emit Initialized(token, vesting, protocolFeeBps);
     }
 
 }
