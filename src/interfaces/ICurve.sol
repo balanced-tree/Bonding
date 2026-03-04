@@ -7,7 +7,7 @@ interface ICurve {
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
-    event Initialized(address indexed token, address indexed vesting, address indexed creator);
+    event Initialized(address indexed token, address indexed vesting, uint256 indexed protocolFeeBps);
     event TokensBought(address indexed buyer, uint256 collateralIn, uint256 tokensOut, uint256 fee);
     event TokensSold(address indexed seller, uint256 tokensIn, uint256 collateralOut, uint256 fee);
     event CurveGraduated(uint256 totalCollateral, uint256 totalSupply);
