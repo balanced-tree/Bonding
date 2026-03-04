@@ -9,7 +9,6 @@ import {
 } from "../Types.sol";
 import { ICurve } from "../interfaces/ICurve.sol";
 import { IVesting } from "../interfaces/IVesting.sol";
-import { IBondingToken } from "../interfaces/IBondingToken.sol";
 
 // OpenZeppelin Contracts
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -60,12 +59,14 @@ abstract contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     /// @param _protocolFeeBps The protocol fee in basis points
     /// @param params The parameters for the curve
     function initialize(
+        address _token,
         address _vesting,
         address _treasury,
         uint256 _protocolFeeBps,
         CreateCurveParams memory params
     ) external initializer {
         // Initialize state variables
+        token = _token;
         vesting = _vesting;
         treasury = _treasury;
         protocolFeeBps = _protocolFeeBps;
