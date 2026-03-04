@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { IBondingToken } from "../interfaces/IBondingToken.sol";
-
 import { ERC20Upgradeable } from "@openzeppelin-contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { Initializable } from "@openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 
