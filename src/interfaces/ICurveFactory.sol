@@ -14,6 +14,7 @@ interface ICurveFactory {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
+    error INVALID_CONFIG();
     error INVALID_ADDRESS();
     error INVALID_FEE_BPS();
     error INVALID_SEGMENTS();
