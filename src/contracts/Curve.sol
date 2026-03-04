@@ -44,6 +44,14 @@ abstract contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     /*//////////////////////////////////////////////////////////////
                             INITIALIZATION
     //////////////////////////////////////////////////////////////*/
+    /// @notice Initializes the curve contract
+    /// @dev This function can only be called once due to initializer modifier
+    /// @dev Security: addresses are already validated in the factory
+    /// @param _token The address of the token contract
+    /// @param _vesting The address of the vesting contract
+    /// @param _treasury The address of the treasury
+    /// @param _protocolFeeBps The protocol fee in basis points
+    /// @param params The parameters for the curve
     function initialize(
         address _token,
         address _vesting,
