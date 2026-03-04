@@ -7,6 +7,7 @@ interface ICurve {
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
+    event Initialized(address indexed token, address indexed vesting, address indexed creator);
     event TokensBought(address indexed buyer, uint256 collateralIn, uint256 tokensOut, uint256 fee);
     event TokensSold(address indexed seller, uint256 tokensIn, uint256 collateralOut, uint256 fee);
     event CurveGraduated(uint256 totalCollateral, uint256 totalSupply);
@@ -67,6 +68,6 @@ interface ICurve {
 
     /// @notice Graduates the bonding curve once the collateral threshold is reached
     /// @dev Triggers the graduation manager to migrate liquidity (e.g., to a DEX).
-    ///      Reverts if the curve has already graduated or the threshold is not met.
+    /// Reverts if the curve has already graduated or the threshold is not met.
     function graduateCurve() external;
 }
