@@ -2,8 +2,20 @@
 pragma solidity 0.8.30;
 
 /// @title IVesting
-/// @notice Interface for the vesting contract (Phase 4)
+/// @notice Interface for the vesting contract
 interface IVesting {
+    /*//////////////////////////////////////////////////////////////
+                                EVENTS
+    //////////////////////////////////////////////////////////////*/
+    event Initialized(address indexed curve);
+    event VestingAdded(address indexed beneficiary, uint256 amount);
+    event Claimed(address indexed beneficiary, uint256 amountClaimed);
+
+    /*//////////////////////////////////////////////////////////////
+                                ERRORS
+    //////////////////////////////////////////////////////////////*/
+    error ALREADY_INITIALIZED();
+
     /// @notice Initializes the vesting contract with token and schedule parameters
     /// @dev Called once after deployment. Sets the token to vest and the global schedule.
     /// @param token The address of the ERC20 token subject to vesting
@@ -13,6 +25,7 @@ interface IVesting {
 
     /// @notice Adds a vesting allocation for a beneficiary
     /// @dev Creates or increases a vesting schedule for the given address
+    /// @notice Only callable by the curve contract
     /// @param beneficiary The address that will receive vested tokens
     /// @param amount The total number of tokens allocated for vesting
     function addVesting(address beneficiary, uint256 amount) external;
