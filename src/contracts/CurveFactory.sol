@@ -17,19 +17,14 @@ import { ICurveFactory } from "../interfaces/ICurveFactory.sol";
 
 // OpenZeppelin Contracts
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @title CurveFactory
 /// @notice Factory for creating Curve contracts
 /// @author balanced-tree
 contract CurveFactory is ICurveFactory {
     using EnumerableSet for EnumerableSet.AddressSet;
-    using SafeERC20 for IERC20;
     using Clones for address;
-    using Math for uint256;
 
     /*//////////////////////////////////////////////////////////////
                               STATE VARIABLES
@@ -40,12 +35,10 @@ contract CurveFactory is ICurveFactory {
     address public immutable TOKEN_IMPLEMENTATION;
     address public immutable VESTING_IMPLEMENTATION;
     address public immutable GRADUATION_MANAGER_IMPLEMENTATION;
-    
+
     EnumerableSet.AddressSet private _curves;
-    EnumerableSet.AddressSet private _tokens;
 
     uint256 public protocolFeeBps;
-    // Constant for basis points precision (100% = 10,000 bps)
     uint256 private constant BPS_PRECISION = 10_000;
 
     mapping(address curve => address token) public curveToToken;
@@ -55,6 +48,7 @@ contract CurveFactory is ICurveFactory {
     //////////////////////////////////////////////////////////////*/
     constructor(
       address _curveImplementation,
+      address _tokenImplementation,
       address _vestingImplementation,
       address _graduationManagerImplementation,
       address _protocolTreasury,
@@ -62,6 +56,7 @@ contract CurveFactory is ICurveFactory {
     ) {
         if (
           _curveImplementation == address(0) ||
+          _tokenImplementation == address(0) ||
           _vestingImplementation == address(0) ||
           _graduationManagerImplementation == address(0) ||
           _protocolTreasury == address(0)
@@ -74,6 +69,7 @@ contract CurveFactory is ICurveFactory {
         }
 
         CURVE_IMPLEMENTATION = _curveImplementation;
+        TOKEN_IMPLEMENTATION = _tokenImplementation;
         VESTING_IMPLEMENTATION = _vestingImplementation;
         GRADUATION_MANAGER_IMPLEMENTATION = _graduationManagerImplementation;
 
@@ -84,37 +80,71 @@ contract CurveFactory is ICurveFactory {
     /*//////////////////////////////////////////////////////////////
                               CURVE CREATION
     //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc ICurveFactory
     function createCurve(CreateCurveParams calldata config) external returns (address curve) {
         if (config.curveParams.collateralToken == address(0) || config.curveParams.segments.length == 0) {
             revert INVALID_CONFIG();
         }
 
-        bytes32 salt = keccak256(abi.encode(config));
+        bytes32 salt = keccak256(abi.encode(msg.sender, config));
+
+        // Clone all core contracts
         address curveInstance = CURVE_IMPLEMENTATION.cloneDeterministic(salt);
         address tokenInstance = TOKEN_IMPLEMENTATION.cloneDeterministic(salt);
         address graduationManagerInstance = GRADUATION_MANAGER_IMPLEMENTATION.cloneDeterministic(salt);
 
+        // Clone vesting only if configured
         address vestingInstance;
         if (config.vestingConfig.cliffDuration > 0 && config.vestingConfig.vestingDuration > 0) {
-          vestingInstance = VESTING_IMPLEMENTATION.cloneDeterministic(salt);
+            vestingInstance = VESTING_IMPLEMENTATION.cloneDeterministic(salt);
         }
-        
+
+        // Initialize the token (minter = curve)
+        BondingToken(tokenInstance).initialize(config.name, config.symbol, config.decimals, curveInstance);
+
         // Initialize the curve
         Curve(curveInstance).initialize(tokenInstance, vestingInstance, protocolTreasury, protocolFeeBps, config);
-        
-        // Initialize the token
-        BondingToken(tokenInstance).initialize(config.name, config.symbol, config.decimals, curveInstance);
 
         // Initialize the graduation manager
         GraduationManager(graduationManagerInstance).initialize(
-          curveInstance,
-          tokenInstance,
-          config.curveParams.collateralToken
+            curveInstance,
+            tokenInstance,
+            config.curveParams.collateralToken
         );
 
-        // Initialize the vesting
+        // Initialize vesting if deployed
+        if (vestingInstance != address(0)) {
+            Vesting(vestingInstance).initialize(
+                tokenInstance,
+                config.vestingConfig.cliffDuration,
+                config.vestingConfig.vestingDuration
+            );
+        }
+
+        // Register
         _curves.add(curveInstance);
-        _tokens.add(tokenInstance);
+        curveToToken[curveInstance] = tokenInstance;
+
+        emit CurveCreated(curveInstance, tokenInstance, msg.sender);
+
+        return curveInstance;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                              VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+    /// @inheritdoc ICurveFactory
+    function getCurveCount() external view returns (uint256) {
+        return _curves.length();
+    }
+
+    /// @inheritdoc ICurveFactory
+    function isCurve(address curve) external view returns (bool) {
+        return _curves.contains(curve);
+    }
+
+    /// @inheritdoc ICurveFactory
+    function getCurves() external view returns (address[] memory) {
+        return _curves.values();
+    }
 }
