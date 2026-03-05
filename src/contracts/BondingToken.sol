@@ -24,6 +24,9 @@ contract BondingToken is Initializable, ERC20Upgradeable {
         _disableInitializers();
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            INITIALIZATION
+    //////////////////////////////////////////////////////////////*/
     function initialize(
         string memory name_,
         string memory symbol_,

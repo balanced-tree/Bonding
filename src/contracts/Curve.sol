@@ -84,4 +84,8 @@ abstract contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
         emit Initialized(token, vesting, protocolFeeBps);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
 }
