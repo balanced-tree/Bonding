@@ -30,7 +30,7 @@ abstract contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     address public token;
     address public collateralToken;
 
-    address public vesting;
+    address public vesting; // Optional vesting contract
     address public treasury;
 
     uint256 public maxBuyPerTx;
@@ -41,11 +41,13 @@ abstract contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     bool public graduated;
 
     PiecewiseSegment[] public segments;
-    
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
-    constructor() {}
+    /// @dev Locks the implementation contract from being initialized
+    constructor() {
+        _disableInitializers();
+    }
 
     /*//////////////////////////////////////////////////////////////
                             INITIALIZATION
@@ -67,7 +69,9 @@ abstract contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     ) external initializer {
         // Initialize state variables
         token = _token;
-        vesting = _vesting;
+        if (_vesting != address(0)) {
+          vesting = _vesting;
+        }
         treasury = _treasury;
         protocolFeeBps = _protocolFeeBps;
 
