@@ -38,7 +38,10 @@ contract BondingToken is Initializable, ERC20Upgradeable {
         _tokenDecimals = decimals_;
         minter = minter_;
     }
-
+    
+    /*//////////////////////////////////////////////////////////////
+                            EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
     function mint(address to, uint256 amount) external onlyMinter {
         _mint(to, amount);
     }
@@ -46,7 +49,10 @@ contract BondingToken is Initializable, ERC20Upgradeable {
     function burn(address from, uint256 amount) external onlyMinter {
         _burn(from, amount);
     }
-
+    
+    /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
     function decimals() public view override returns (uint8) {
         return _tokenDecimals;
     }
