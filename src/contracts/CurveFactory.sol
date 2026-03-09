@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { CreateCurveParams, PiecewiseSegment } from "../Types.sol";
+// Contracts
 import { Curve } from "./Curve.sol";
 import { Vesting } from "./Vesting.sol";
 import { BondingToken } from "./BondingToken.sol";
 import { GraduationManager } from "./GraduationManager.sol";
 import { ICurveFactory } from "../interfaces/ICurveFactory.sol";
+import { CreateCurveParams, PiecewiseSegment } from "../Types.sol";
 
 // OpenZeppelin Contracts
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
@@ -28,9 +29,9 @@ contract CurveFactory is ICurveFactory {
     /*//////////////////////////////////////////////////////////////
                               STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
-    address public immutable PROTOCOL_TREASURY;
     uint256 public immutable PROTOCOL_FEE_BPS;
-
+    
+    address public immutable PROTOCOL_TREASURY;
     address public immutable CURVE_IMPLEMENTATION;
     address public immutable TOKEN_IMPLEMENTATION;
     address public immutable VESTING_IMPLEMENTATION;
