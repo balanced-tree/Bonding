@@ -8,6 +8,9 @@ import { ReentrancyGuardTransient } from "@openzeppelin/contracts/utils/Reentran
 // Contracts
 import { IVesting } from "../interfaces/IVesting.sol";
 
-abstract contract Vesting is Initializable, IVesting {
+contract Vesting is Initializable {
+    constructor() {
+        _disableInitializers();
+    }
 
 }
