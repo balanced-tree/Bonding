@@ -32,8 +32,8 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     address public collateralToken;
 
     address public vesting;
-    address public graduationManager;
     address public treasury;
+    address public graduationManager;
 
     uint256 public maxBuyPerTx;
     uint256 public maxSellPerTx;
