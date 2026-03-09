@@ -249,6 +249,17 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
         emit CurveGraduated(collateralBalance, tokenSupply);
     }
 
+    /// @dev Calculates protocol and creator fees for a given amount
+    /// @param amount The amount to calculate fees on
+    /// @return protocolFee Fee sent to protocol treasury
+    /// @return creatorFee Fee sent to fee recipient (0 if no recipient set)
+    function _calculateFees(uint256 amount) internal view returns (uint256 protocolFee, uint256 creatorFee) {
+        protocolFee = (amount * protocolFeeBps) / BPS_PRECISION;
+        if (feeRecipient != address(0)) {
+            creatorFee = (amount * feeRecipientBps) / BPS_PRECISION;
+        }
+    }
+
     /// @dev Copies storage segments into memory for PriceLib consumption
     function _getSegments() internal view returns (PiecewiseSegment[] memory) {
         return segments;
