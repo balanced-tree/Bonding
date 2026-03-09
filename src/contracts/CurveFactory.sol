@@ -80,6 +80,7 @@ contract CurveFactory is ICurveFactory {
     function createCurve(CreateCurveParams calldata config) external returns (address curve) {
         if (config.curveParams.collateralToken == address(0)) revert INVALID_CONFIG();
         _validateSegments(config.curveParams.segments);
+        _validateFeeRecipient(config.feeRecipient, config.feeRecipientBps);
 
         // forge-lint: disable-next-line(asm-keccak256)
         bytes32 salt = keccak256(abi.encode(msg.sender, config));
@@ -167,5 +168,15 @@ contract CurveFactory is ICurveFactory {
                 revert INVALID_SEGMENTS();
             }
         }
+    }
+
+    /// @dev Validates fee recipient configuration:
+    ///      - If feeRecipient is set, feeRecipientBps must be > 0
+    ///      - If feeRecipient is address(0), feeRecipientBps must be 0
+    ///      - Combined fees (protocol + creator) must not exceed BPS_PRECISION
+    function _validateFeeRecipient(address recipient, uint256 recipientBps) private view {
+        if (recipient == address(0) && recipientBps > 0) revert INVALID_CONFIG();
+        if (recipient != address(0) && recipientBps == 0) revert INVALID_CONFIG();
+        if (PROTOCOL_FEE_BPS + recipientBps >= BPS_PRECISION) revert INVALID_FEE_BPS();
     }
 }
