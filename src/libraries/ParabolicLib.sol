@@ -23,31 +23,5 @@ library ParabolicLib {
         price = a * s * s + b * s + c;
     }
 
-    /// @notice Computes the definite integral of p(s) from sFrom to sTo
-    /// @dev ∫(a*s² + b*s + c)ds = a*s³/3 + b*s²/2 + c*s, evaluated as F(sTo) - F(sFrom)
-    /// @param encodedParams ABI-encoded ParabolicParams (a, b, c)
-    /// @param sFrom Lower supply bound (SD59x18)
-    /// @param sTo Upper supply bound (SD59x18)
-    /// @return area The area under the price curve between sFrom and sTo
-    function integrate(
-        bytes memory encodedParams,
-        SD59x18 sFrom,
-        SD59x18 sTo
-    ) internal pure returns (SD59x18 area) {
-        ParabolicParams memory p = abi.decode(encodedParams, (ParabolicParams));
-        SD59x18 a = sd(p.a);
-        SD59x18 b = sd(p.b);
-        SD59x18 c = sd(p.c);
-
-        // F(s) = a*s³/3 + b*s²/2 + c*s
-        // area = F(sTo) - F(sFrom)
-        area = _antiderivative(a, b, c, sTo) - _antiderivative(a, b, c, sFrom);
-    }
-
-    /// @dev Evaluates the antiderivative F(s) = a*s³/3 + b*s²/2 + c*s
-    function _antiderivative(SD59x18 a, SD59x18 b, SD59x18 c, SD59x18 s) private pure returns (SD59x18) {
-        SD59x18 two = convert(2);
-        SD59x18 three = convert(3);
-        return (a * s * s * s) / three + (b * s * s) / two + c * s;
-    }
+    
 }
