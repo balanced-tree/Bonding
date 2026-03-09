@@ -34,11 +34,13 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     address public vesting;
     address public treasury;
     address public graduationManager;
+    address public feeRecipient;
 
     uint256 public maxBuyPerTx;
     uint256 public maxSellPerTx;
     uint256 public maxThreshold;
     uint256 public protocolFeeBps;
+    uint256 public feeRecipientBps;
 
     bool public graduated;
 
@@ -82,6 +84,11 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
         maxSellPerTx = params.curveParams.maxSellPerTx;
         maxThreshold = params.curveParams.maxThreshold;
 
+        if (params.feeRecipient != address(0)) {
+            feeRecipient = params.feeRecipient;
+            feeRecipientBps = params.feeRecipientBps;
+        }
+
         // Copy segments to storage (must be done element-by-element for dynamic bytes)
         for (uint256 i; i < params.curveParams.segments.length; ++i) {
             segments.push(params.curveParams.segments[i]);
@@ -99,9 +106,10 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
         if (collateralAmount == 0) revert INVALID_AMOUNT();
         if (graduated) revert ALREADY_GRADUATED();
 
-        // Calculate fee and net collateral for pricing
-        uint256 fee = (collateralAmount * protocolFeeBps) / BPS_PRECISION;
-        uint256 netCollateral = collateralAmount - fee;
+        // Calculate fees and net collateral for pricing
+        (uint256 protocolFee, uint256 creatorFee) = _calculateFees(collateralAmount);
+        uint256 totalFee = protocolFee + creatorFee;
+        uint256 netCollateral = collateralAmount - totalFee;
 
         // Calculate tokens to mint from net collateral
         uint256 currentSupply = BondingToken(token).totalSupply();
@@ -113,7 +121,10 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
 
         // Interactions: transfer collateral in, mint tokens out
         IERC20(collateralToken).safeTransferFrom(msg.sender, address(this), netCollateral);
-        IERC20(collateralToken).safeTransferFrom(msg.sender, treasury, fee);
+        IERC20(collateralToken).safeTransferFrom(msg.sender, treasury, protocolFee);
+        if (creatorFee > 0) {
+            IERC20(collateralToken).safeTransferFrom(msg.sender, feeRecipient, creatorFee);
+        }
 
         if (vesting != address(0)) {
             BondingToken(token).mint(vesting, tokensOut);
@@ -122,7 +133,7 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
             BondingToken(token).mint(msg.sender, tokensOut);
         }
 
-        emit TokensBought(msg.sender, collateralAmount, tokensOut, fee);
+        emit TokensBought(msg.sender, collateralAmount, tokensOut, totalFee);
 
         // Check graduation threshold
         _checkGraduation();
