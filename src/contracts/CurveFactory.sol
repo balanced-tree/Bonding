@@ -24,6 +24,7 @@ contract CurveFactory is ICurveFactory {
                               CONSTANTS
     //////////////////////////////////////////////////////////////*/
     uint256 private constant BPS_PRECISION = 10_000;
+    uint256 private constant MAX_FEE_BPS = 3_000; // 30% max combined fees
     uint256 private constant MAX_SEGMENTS = 3;
 
     /*//////////////////////////////////////////////////////////////
@@ -173,10 +174,10 @@ contract CurveFactory is ICurveFactory {
     /// @dev Validates fee recipient configuration:
     ///      - If feeRecipient is set, feeRecipientBps must be > 0
     ///      - If feeRecipient is address(0), feeRecipientBps must be 0
-    ///      - Combined fees (protocol + creator) must not exceed BPS_PRECISION
+    ///      - Combined fees (protocol + creator) must not exceed MAX_FEE_BPS (30%)
     function _validateFeeRecipient(address recipient, uint256 recipientBps) private view {
         if (recipient == address(0) && recipientBps > 0) revert INVALID_CONFIG();
         if (recipient != address(0) && recipientBps == 0) revert INVALID_CONFIG();
-        if (PROTOCOL_FEE_BPS + recipientBps >= BPS_PRECISION) revert INVALID_FEE_BPS();
+        if (PROTOCOL_FEE_BPS + recipientBps > MAX_FEE_BPS) revert INVALID_FEE_BPS();
     }
 }
