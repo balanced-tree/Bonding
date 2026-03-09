@@ -72,13 +72,16 @@ library SinLib {
     ///      need to handle the sign conversion.
     function _normalizeAngle(SD59x18 angle) private pure returns (uint256) {
         int256 raw = angle.unwrap();
-        if (raw >= 0) return uint256(raw);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        if (raw >= 0) return uint256(raw); // safe: raw is non-negative
 
         // For negative angles: normalize to [0, 2π)
         // e.g., -0.5 rad → (2π - 0.5) rad
-        int256 twoPi = int256(TWO_PI);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        int256 twoPi = int256(TWO_PI); // safe: TWO_PI ≈ 6.28e18, fits in int256
         int256 normalized = raw % twoPi;
         if (normalized < 0) normalized += twoPi;
-        return uint256(normalized);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        return uint256(normalized); // safe: normalized is in [0, twoPi)
     }
 }
