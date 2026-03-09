@@ -21,8 +21,41 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract BaseTest is Test {
     using Clones for address;
-    
+
+    /// @notice Protocol contracts
+    address public curveFactory;
+    address public feeRecipient;
+    address public protocolTreasury;
+
+    /// @notice Implementation contracts
+    address public curveImplementation;
+    address public tokenImplementation;
+    address public vestingImplementation;
+    address public graduationManagerImplementation;
+
+    uint256 public protocolFeeBps;
+
     function setUp() public virtual {
-        // Setup
+        // Deploy implementation contracts
+        curveImplementation = address(new Curve());
+        tokenImplementation = address(new BondingToken());
+        vestingImplementation = address(new Vesting());
+        graduationManagerImplementation = address(new GraduationManager());
+
+        // Deploy protocol treasury
+        protocolTreasury = makeAddr("protocolTreasury");
+
+        // Deploy protocol contracts
+        curveFactory = address(
+          new CurveFactory(
+              curveImplementation,
+              tokenImplementation,
+              vestingImplementation,
+              graduationManagerImplementation,
+              protocolTreasury,
+              protocolFeeBps
+          )
+        );
+
     }
 }
