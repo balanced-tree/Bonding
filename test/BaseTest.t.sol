@@ -20,6 +20,8 @@ import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract BaseTest is Test {
+    using Clones for address;
+    
     function setUp() public virtual {
         // Setup
     }
