@@ -44,16 +44,23 @@ library SinLib {
         SinParams memory p = abi.decode(encodedParams, (SinParams));
         SD59x18 a = sd(p.a);
         SD59x18 w = sd(p.w);
-        SD59x18 phi = sd(p.phi);
-        SD59x18 b = sd(p.b);
+        SD59x18 negAOverW = -a / w;
 
         // F(s) = -a/w * cos(w*s + phi) + b*s
         // area = F(sTo) - F(sFrom)
-        SD59x18 negAOverW = -a / w;
+        area = _antiderivative(negAOverW, w, sd(p.phi), sd(p.b), sTo)
+            - _antiderivative(negAOverW, w, sd(p.phi), sd(p.b), sFrom);
+    }
 
-        SD59x18 fTo = negAOverW * _cos(w * sTo + phi) + b * sTo;
-        SD59x18 fFrom = negAOverW * _cos(w * sFrom + phi) + b * sFrom;
-        area = fTo - fFrom;
+    /// @dev Evaluates the antiderivative F(s) = negAOverW * cos(w*s + phi) + b*s
+    function _antiderivative(
+        SD59x18 negAOverW,
+        SD59x18 w,
+        SD59x18 phi,
+        SD59x18 b,
+        SD59x18 s
+    ) private pure returns (SD59x18) {
+        return negAOverW * _cos(w * s + phi) + b * s;
     }
 
     /// @dev Wraps Trigonometry.sin() for SD59x18 angles.
