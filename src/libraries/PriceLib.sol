@@ -1,26 +1,38 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { SD59x18, sd, convert } from "@prb-math/SD59x18.sol";
-import { PiecewiseSegment, FormulaType } from "../Types.sol";
-
-import { LinearLib } from "./LinearLib.sol";
 import { LnLib } from "./LnLib.sol";
 import { SinLib } from "./SinLib.sol";
+import { LinearLib } from "./LinearLib.sol";
+import { SigmoidLib } from "./SigmoidLib.sol";
 import { ParabolicLib } from "./ParabolicLib.sol";
 import { ExponentialLib } from "./ExponentialLib.sol";
-import { SigmoidLib } from "./SigmoidLib.sol";
+
+import { SD59x18, sd, convert } from "@prb-math/SD59x18.sol";
+import { PiecewiseSegment, FormulaType } from "../Types.sol";
 
 /// @title PriceLib
 /// @notice Pure library for bonding curve price calculations with piecewise segment routing.
 /// @dev Converts between uint256 (used by Curve.sol) and SD59x18 (used by formula libraries).
 ///      All uint256 values are 18-decimal fixed-point (same scale as SD59x18, but unsigned).
 library PriceLib {
-    error INVALID_FORMULA_TYPE();
+    /*//////////////////////////////////////////////////////////////
+                                ERRORS
+    //////////////////////////////////////////////////////////////*/
+    /// @notice Zero tokens
     error ZERO_TOKENS();
-    error SUPPLY_OUT_OF_RANGE();
-    error NEGATIVE_PRICE();
+    /// @notice Negative area
     error NEGATIVE_AREA();
+    /// @notice Negative price
+    error NEGATIVE_PRICE();
+    /// @notice Supply out of range
+    error SUPPLY_OUT_OF_RANGE();
+    /// @notice Invalid formula type
+    error INVALID_FORMULA_TYPE();
+
+    /*//////////////////////////////////////////////////////////////
+                              CONSTANTS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Maximum iterations for binary search in calculateBuyTokens
     uint256 private constant MAX_ITERATIONS = 128;
