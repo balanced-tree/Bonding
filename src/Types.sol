@@ -28,11 +28,14 @@ struct CurveParams {
 /// @param decimals The number of decimals of the curve
 /// @param curveParams The parameters for the curve
 /// @param vestingConfig The parameters for the vesting (optional)
+/// @param feeRecipient Address receiving creator fees (address(0) = no creator fee)
+/// @param feeRecipientBps Creator fee in basis points (must be 0 if feeRecipient is address(0))
 struct CreateCurveParams {
     string name;
     string symbol;
     uint8 decimals;
     address feeRecipient;
+    uint256 feeRecipientBps;
     CurveParams curveParams;
     VestingConfig vestingConfig;
 }
