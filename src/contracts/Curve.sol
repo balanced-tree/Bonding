@@ -215,7 +215,7 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Checks if the graduation threshold has been met and triggers graduation if so
-    function _checkGraduation() private {
+    function _checkGraduation() internal {
         if (maxThreshold == 0) return;
         uint256 collateralBalance = IERC20(collateralToken).balanceOf(address(this));
         if (collateralBalance < maxThreshold) return;
@@ -234,7 +234,7 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     }
 
     /// @dev Copies storage segments into memory for PriceLib consumption
-    function _getSegments() private view returns (PiecewiseSegment[] memory) {
+    function _getSegments() internal view returns (PiecewiseSegment[] memory) {
         return segments;
     }
 }
