@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { PiecewiseSegment, CreateCurveParams } from "../Types.sol";
 import { ICurve } from "../interfaces/ICurve.sol";
-import { IVesting } from "../interfaces/IVesting.sol";
-import { IGraduationManager } from "../interfaces/IGraduationManager.sol";
-import { PriceLib } from "../libraries/PriceLib.sol";
 import { BondingToken } from "./BondingToken.sol";
+import { PriceLib } from "../libraries/PriceLib.sol";
+import { IVesting } from "../interfaces/IVesting.sol";
+import { PiecewiseSegment, CreateCurveParams } from "../Types.sol";
+import { IGraduationManager } from "../interfaces/IGraduationManager.sol";
 
 // OpenZeppelin Contracts
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
