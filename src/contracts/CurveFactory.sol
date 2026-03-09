@@ -49,7 +49,7 @@ contract CurveFactory is ICurveFactory {
         address _vestingImplementation,
         address _graduationManagerImplementation,
         address _protocolTreasury,
-        uint256 _PROTOCOL_FEE_BPS
+        uint256 _protocolFeeBps
     ) {
         if (
             _curveImplementation == address(0) || _tokenImplementation == address(0)
@@ -59,7 +59,7 @@ contract CurveFactory is ICurveFactory {
             revert INVALID_ADDRESS();
         }
 
-        if (_PROTOCOL_FEE_BPS >= BPS_PRECISION || _PROTOCOL_FEE_BPS == 0) {
+        if (_protocolFeeBps >= BPS_PRECISION || _protocolFeeBps == 0) {
             revert INVALID_FEE_BPS();
         }
 
@@ -69,7 +69,7 @@ contract CurveFactory is ICurveFactory {
         GRADUATION_MANAGER_IMPLEMENTATION = _graduationManagerImplementation;
 
         PROTOCOL_TREASURY = _protocolTreasury;
-        PROTOCOL_FEE_BPS = _PROTOCOL_FEE_BPS;
+        PROTOCOL_FEE_BPS = _protocolFeeBps;
     }
 
     /*//////////////////////////////////////////////////////////////
