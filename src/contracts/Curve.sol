@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-
+// Contracts
 import { ICurve } from "../interfaces/ICurve.sol";
 import { BondingToken } from "./BondingToken.sol";
 import { PriceLib } from "../libraries/PriceLib.sol";
