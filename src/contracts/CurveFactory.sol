@@ -5,9 +5,7 @@ import {
   CurveParams,
   VestingConfig,
   CreateCurveParams,
-  PiecewiseSegment,
-  FormulaParams,
-  FormulaType
+  PiecewiseSegment
 } from "../Types.sol";
 import { Curve } from "./Curve.sol";
 import { Vesting } from "./Vesting.sol";
