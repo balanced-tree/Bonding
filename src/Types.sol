@@ -32,6 +32,7 @@ struct CreateCurveParams {
     string name;
     string symbol;
     uint8 decimals;
+    address feeRecipient;
     CurveParams curveParams;
     VestingConfig vestingConfig;
 }
