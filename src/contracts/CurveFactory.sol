@@ -101,7 +101,9 @@ contract CurveFactory is ICurveFactory {
         BondingToken(tokenInstance).initialize(config.name, config.symbol, config.decimals, curveInstance);
 
         // Initialize the curve
-        Curve(curveInstance).initialize(tokenInstance, vestingInstance, protocolTreasury, protocolFeeBps, config);
+        Curve(curveInstance).initialize(
+            tokenInstance, vestingInstance, graduationManagerInstance, protocolTreasury, protocolFeeBps, config
+        );
 
         // Initialize the graduation manager
         GraduationManager(graduationManagerInstance).initialize(
