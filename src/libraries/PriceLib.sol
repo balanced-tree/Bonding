@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
+// Formula libraries
 import { LnLib } from "./LnLib.sol";
 import { SinLib } from "./SinLib.sol";
 import { LinearLib } from "./LinearLib.sol";
@@ -8,8 +9,11 @@ import { SigmoidLib } from "./SigmoidLib.sol";
 import { ParabolicLib } from "./ParabolicLib.sol";
 import { ExponentialLib } from "./ExponentialLib.sol";
 
-import { SD59x18, sd, convert } from "@prb-math/SD59x18.sol";
+// Types
 import { PiecewiseSegment, FormulaType } from "../Types.sol";
+
+// PRBMath
+import { SD59x18, sd, convert } from "@prb-math/SD59x18.sol";
 
 /// @title PriceLib
 /// @notice Pure library for bonding curve price calculations with piecewise segment routing.
