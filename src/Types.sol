@@ -4,6 +4,50 @@ pragma solidity 0.8.30;
 /// @title Types
 /// @notice Shared types used across the bonding curve protocol
 
+/*//////////////////////////////////////////////////////////////
+                        CURVE PARAM STRUCTS
+//////////////////////////////////////////////////////////////*/
+
+/// @notice Parameters for the curve
+/// @param collateralToken The address of the collateral token
+/// @param segments The segments of the curve
+/// @param maxThreshold The maximum threshold for graduation
+/// @param maxBuyPerTx The maximum number of tokens purchasable per transaction
+/// @param maxSellPerTx The maximum number of tokens sellable per transaction
+struct CurveParams {
+    address collateralToken;
+    PiecewiseSegment[] segments;
+    uint256 maxThreshold;
+    uint256 maxBuyPerTx;
+    uint256 maxSellPerTx;
+}
+
+/// @notice Parameters for creating a curve
+/// @param name The name of the curve
+/// @param symbol The symbol of the curve
+/// @param decimals The number of decimals of the curve
+/// @param curveParams The parameters for the curve
+/// @param vestingConfig The parameters for the vesting (optional)
+struct CreateCurveParams {
+    string name;
+    string symbol;
+    uint8 decimals;
+    CurveParams curveParams;
+    VestingConfig vestingConfig;
+}
+
+/// @notice Parameters for the vesting
+/// @param cliffDuration The duration of the cliff
+/// @param vestingDuration The duration of the vesting
+struct VestingConfig {
+    uint256 cliffDuration;
+    uint256 vestingDuration;
+}
+
+/*//////////////////////////////////////////////////////////////
+                        FORMULA PARAMS
+//////////////////////////////////////////////////////////////*/
+/// @notice The type of formula to use for the segment
 enum FormulaType {
     LINEAR,
     LN,
@@ -12,10 +56,6 @@ enum FormulaType {
     EXPONENTIAL,
     SIGMOID
 }
-
-/*//////////////////////////////////////////////////////////////
-                        FORMULA PARAM STRUCTS
-//////////////////////////////////////////////////////////////*/
 
 /// @notice Parameters for linear price formula: p(s) = m * s + b
 /// @param m Slope (SD59x18)
@@ -92,44 +132,4 @@ struct PiecewiseSegment {
     uint256 supplyEnd; // Token supply where this segment ends (18 decimals)
     FormulaType formulaType;
     bytes encodedParams;
-}
-
-/*//////////////////////////////////////////////////////////////
-                        CURVE PARAM STRUCTS
-//////////////////////////////////////////////////////////////*/
-
-/// @notice Parameters for the curve
-/// @param collateralToken The address of the collateral token
-/// @param segments The segments of the curve
-/// @param maxThreshold The maximum threshold for graduation
-/// @param maxBuyPerTx The maximum number of tokens purchasable per transaction
-/// @param maxSellPerTx The maximum number of tokens sellable per transaction
-struct CurveParams {
-    address collateralToken;
-    PiecewiseSegment[] segments;
-    uint256 maxThreshold;
-    uint256 maxBuyPerTx;
-    uint256 maxSellPerTx;
-}
-
-/// @notice Parameters for creating a curve
-/// @param name The name of the curve
-/// @param symbol The symbol of the curve
-/// @param decimals The number of decimals of the curve
-/// @param curveParams The parameters for the curve
-/// @param vestingConfig The parameters for the vesting (optional)
-struct CreateCurveParams {
-    string name;
-    string symbol;
-    uint8 decimals;
-    CurveParams curveParams;
-    VestingConfig vestingConfig;
-}
-
-/// @notice Parameters for the vesting
-/// @param cliffDuration The duration of the cliff
-/// @param vestingDuration The duration of the vesting
-struct VestingConfig {
-    uint256 cliffDuration;
-    uint256 vestingDuration;
 }
