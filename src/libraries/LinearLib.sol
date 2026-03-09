@@ -21,5 +21,26 @@ library LinearLib {
         price = m * s + b;
     }
 
-    
+    /// @notice Computes the definite integral of p(s) from sFrom to sTo
+    /// @dev ∫(m*s + b)ds = m*s²/2 + b*s, evaluated as F(sTo) - F(sFrom)
+    /// @param encodedParams ABI-encoded LinearParams (m, b)
+    /// @param sFrom Lower supply bound (SD59x18)
+    /// @param sTo Upper supply bound (SD59x18)
+    /// @return area The area under the price curve between sFrom and sTo
+    function integrate(
+        bytes memory encodedParams,
+        SD59x18 sFrom,
+        SD59x18 sTo
+    ) internal pure returns (SD59x18 area) {
+        LinearParams memory p = abi.decode(encodedParams, (LinearParams));
+        SD59x18 m = sd(p.m);
+        SD59x18 b = sd(p.b);
+        SD59x18 two = convert(2);
+
+        // F(s) = m * s² / 2 + b * s
+        // area = F(sTo) - F(sFrom)
+        SD59x18 fTo = (m * sTo * sTo) / two + b * sTo;
+        SD59x18 fFrom = (m * sFrom * sFrom) / two + b * sFrom;
+        area = fTo - fFrom;
+    }
 }
