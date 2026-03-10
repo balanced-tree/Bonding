@@ -4,7 +4,6 @@ pragma solidity 0.8.30;
 /// @title IVesting
 /// @notice Interface for the vesting contract
 interface IVesting {
-
     /*//////////////////////////////////////////////////////////////
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
@@ -34,6 +33,7 @@ interface IVesting {
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
     error ONLY_CURVE();
+    error ZERO_ADDRESS();
     error INVALID_DURATION();
     error NOTHING_TO_CLAIM();
     error INVALID_BENEFICIARY();
