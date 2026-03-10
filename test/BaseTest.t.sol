@@ -3,7 +3,6 @@ pragma solidity 0.8.30;
 
 // Types
 import "../src/Types.sol" as Types;
-import { Constants } from "./Constants.sol";
 
 // Forge Std
 import { Test } from "forge-std/Test.sol";
@@ -21,7 +20,7 @@ import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-contract BaseTest is Test, Constants {
+contract BaseTest is Test {
     using Clones for address;
 
     // Test accounts
@@ -45,34 +44,6 @@ contract BaseTest is Test, Constants {
 
     // Protocol fee
     uint256 public protocolFeeBps;
-
-    // Chain Config
-    bool public useLatestFork = true;
-    uint64[] public chainIds = [ETH, OP, BASE];
-    string[] public chainsNames = [ETHEREUM_KEY, OPTIMISM_KEY, BASE_KEY];
-    // chainID => FORK
-    mapping(uint64 chainId => uint256 fork) public forks;
-    mapping(uint64 chainId => string forkUrl) public rpcURLs;
-    string public ethereumRpcUrl = vm.envString(ETHEREUM_RPC_URL_KEY);
-    string public optimismRpcUrl = vm.envString(OPTIMISM_RPC_URL_KEY);
-    string public baseRpcUrl = vm.envString(BASE_RPC_URL_KEY);
-    
-    // Tokens
-    string[] public tokenKeys = [DAI_KEY, USDC_KEY, WETH_KEY, WBTC_KEY];
-    mapping(uint64 chainId => mapping(string tokenKey => address token)) public tokens;
-
-    // Contract Addresses
-    struct Addresses {
-        address curveFactory;
-        address feeRecipient;
-        address protocolTreasury;
-        address curveImplementation;
-        address tokenImplementation;
-        address vestingImplementation;
-        address graduationManagerImplementation;
-    }
-
-    mapping(uint64 chainId => Addresses addresses) public addresses;
 
     function setUp() public virtual {
         protocolFeeBps = 1000; // 10%
