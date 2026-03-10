@@ -11,10 +11,5 @@ interface IGraduationManager {
     /// @param collateral The address of the collateral token held by the curve
     /// @param tokenAmount The amount of bonding curve tokens to migrate
     /// @param collateralAmount The amount of collateral to migrate
-    function graduate(
-        address curve,
-        address collateral,
-        uint256 tokenAmount,
-        uint256 collateralAmount
-    ) external;
+    function graduate(address curve, address collateral, uint256 tokenAmount, uint256 collateralAmount) external;
 }
