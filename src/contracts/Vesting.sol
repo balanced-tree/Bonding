@@ -46,13 +46,21 @@ contract Vesting is Initializable, IVesting {
                             INITIALIZATION
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc IVesting
-    function initialize(address _token, address _curve, uint256 _cliff, uint256 _duration) external initializer {
+    function initialize(
+        address _token,
+        address _curve,
+        uint256 _cliff,
+        uint256 _duration
+    ) external initializer {
+        if (_token == address(0) || _curve == address(0)) revert ZERO_ADDRESS();
         if (_duration == 0) revert INVALID_DURATION();
 
         token = _token;
         curve = _curve;
         cliffDuration = _cliff;
         vestingDuration = _duration;
+
+        emit Initialized(_curve);
     }
 
     /*//////////////////////////////////////////////////////////////
