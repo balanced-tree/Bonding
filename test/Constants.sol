@@ -21,6 +21,11 @@ abstract contract Constants {
     uint256 public constant LARGE = 20 ether;
     uint256 public constant EXTRA_LARGE = 100 ether;
 
+    // RPC 
+    string public constant ETHEREUM_RPC_URL_KEY = "ETHEREUM_RPC_URL";
+    string public constant OPTIMISM_RPC_URL_KEY = "OPTIMISM_RPC_URL";
+    string public constant BASE_RPC_URL_KEY = "BASE_RPC_URL";
+
     
 
 }
