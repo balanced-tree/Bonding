@@ -56,6 +56,7 @@ contract BaseTest is Test, Constants {
     string public ethereumRpcUrl = vm.envString(ETHEREUM_RPC_URL_KEY);
     string public optimismRpcUrl = vm.envString(OPTIMISM_RPC_URL_KEY);
     string public baseRpcUrl = vm.envString(BASE_RPC_URL_KEY);
+    
     // Tokens
     string[] public tokenKeys = [DAI_KEY, USDC_KEY, WETH_KEY, WBTC_KEY];
     mapping(uint64 chainId => mapping(string tokenKey => address token)) public tokens;
