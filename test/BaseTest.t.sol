@@ -22,40 +22,69 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract BaseTest is Test {
     using Clones for address;
 
-    /// @notice Protocol contracts
-    address public curveFactory;
+    /// @notice Test accounts
+    address public curveCreator;
+    address public alice;
+    address public bob;
+    address public eve;
+
+    /// @notice Fee recipient addresses
     address public feeRecipient;
     address public protocolTreasury;
 
-    /// @notice Implementation contracts
-    address public curveImplementation;
-    address public tokenImplementation;
-    address public vestingImplementation;
-    address public graduationManagerImplementation;
+    /// @notice Protocol contracts
+    CurveFactory public curveFactory;
 
+    /// @notice Implementation contracts
+    Curve public curveImplementation;
+    Vesting public vestingImplementation;
+    BondingToken public tokenImplementation;
+    GraduationManager public graduationManagerImplementation;
+
+    /// @notice Protocol fee
     uint256 public protocolFeeBps;
 
     function setUp() public virtual {
         // Deploy implementation contracts
-        curveImplementation = address(new Curve());
-        tokenImplementation = address(new BondingToken());
-        vestingImplementation = address(new Vesting());
-        graduationManagerImplementation = address(new GraduationManager());
+        curveImplementation = new Curve();
+        vestingImplementation = new Vesting();
+        tokenImplementation = new BondingToken();
+        graduationManagerImplementation = new GraduationManager();
 
-        // Deploy protocol treasury
+        // Deploy protocol treasury and set fee 
         protocolTreasury = makeAddr("protocolTreasury");
+        vm.label(protocolTreasury, "ProtocolTreasury");
+        protocolFeeBps = 1000; // 10%
+
+        // Deploy fee recipient
+        feeRecipient = makeAddr("feeRecipient");
+        vm.label(feeRecipient, "FeeRecipient");
+
+        // Label contracts 
+        vm.label(address(curveFactory), "CurveFactory");
+        vm.label(address(curveImplementation), "CurveImplementation");
+        vm.label(address(tokenImplementation), "TokenImplementation");
+        vm.label(address(vestingImplementation), "VestingImplementation");
+        vm.label(address(graduationManagerImplementation), "GraduationManagerImplementation");
+
+        // Set up test accounts
+        curveCreator = makeAddr("curveCreator");
+        vm.label(curveCreator, "CurveCreator");
+        alice = makeAddr("alice");
+        vm.label(alice, "Alice");
+        bob = makeAddr("bob");
+        vm.label(bob, "Bob");
+        eve = makeAddr("eve");
+        vm.label(eve, "Eve");
 
         // Deploy protocol contracts
-        curveFactory = address(
-          new CurveFactory(
-              curveImplementation,
-              tokenImplementation,
-              vestingImplementation,
-              graduationManagerImplementation,
-              protocolTreasury,
-              protocolFeeBps
-          )
+        curveFactory = new CurveFactory(
+            address(curveImplementation),
+            address(tokenImplementation),
+            address(vestingImplementation),
+            address(graduationManagerImplementation),
+            protocolTreasury,
+            protocolFeeBps
         );
-
     }
 }
