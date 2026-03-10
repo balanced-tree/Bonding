@@ -27,11 +27,7 @@ library LinearLib {
     /// @param sFrom Lower supply bound (SD59x18)
     /// @param sTo Upper supply bound (SD59x18)
     /// @return area The area under the price curve between sFrom and sTo
-    function integrate(
-        bytes memory encodedParams,
-        SD59x18 sFrom,
-        SD59x18 sTo
-    ) internal pure returns (SD59x18 area) {
+    function integrate(bytes memory encodedParams, SD59x18 sFrom, SD59x18 sTo) internal pure returns (SD59x18 area) {
         LinearParams memory p = abi.decode(encodedParams, (LinearParams));
         SD59x18 m = sd(p.m);
         SD59x18 b = sd(p.b);
