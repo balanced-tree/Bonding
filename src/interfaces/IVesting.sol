@@ -4,6 +4,11 @@ pragma solidity 0.8.30;
 /// @title IVesting
 /// @notice Interface for the vesting contract
 interface IVesting {
+    struct VestingSchedule {
+        uint256 totalAmount;
+        uint256 startTime;
+        uint256 claimed;
+    }
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
