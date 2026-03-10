@@ -34,11 +34,7 @@ library SigmoidLib {
     /// @param sFrom Lower supply bound (SD59x18)
     /// @param sTo Upper supply bound (SD59x18)
     /// @return area The area under the price curve between sFrom and sTo
-    function integrate(
-        bytes memory encodedParams,
-        SD59x18 sFrom,
-        SD59x18 sTo
-    ) internal pure returns (SD59x18 area) {
+    function integrate(bytes memory encodedParams, SD59x18 sFrom, SD59x18 sTo) internal pure returns (SD59x18 area) {
         SigmoidParams memory p = abi.decode(encodedParams, (SigmoidParams));
         SD59x18 maxVal = sd(p.maxVal);
         SD59x18 k = sd(p.k);
@@ -60,7 +56,11 @@ library SigmoidLib {
         SD59x18 s0,
         SD59x18 b,
         SD59x18 s
-    ) private pure returns (SD59x18) {
+    )
+        private
+        pure
+        returns (SD59x18)
+    {
         SD59x18 one = sd(1e18);
         // ln(1 + e^(k*(s - s0)))
         SD59x18 expTerm = (k * (s - s0)).exp();
