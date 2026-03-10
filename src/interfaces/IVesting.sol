@@ -33,7 +33,10 @@ interface IVesting {
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
-    error ALREADY_INITIALIZED();
+    error ONLY_CURVE();
+    error INVALID_DURATION();
+    error NOTHING_TO_CLAIM();
+    error INVALID_BENEFICIARY();
 
     /*//////////////////////////////////////////////////////////////
                                 FUNCTIONS

@@ -15,12 +15,6 @@ import { IVesting } from "../interfaces/IVesting.sol";
 contract Vesting is Initializable, IVesting {
     using SafeERC20 for IERC20;
 
-    struct VestingSchedule {
-        uint256 totalAmount;
-        uint256 claimed;
-        uint256 startTime;
-    }
-
     /*//////////////////////////////////////////////////////////////
                               STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
@@ -30,15 +24,7 @@ contract Vesting is Initializable, IVesting {
     uint256 public cliffDuration;
     uint256 public vestingDuration;
 
-    mapping(address beneficiary => VestingSchedule) public schedules;
-
-    /*//////////////////////////////////////////////////////////////
-                                ERRORS
-    //////////////////////////////////////////////////////////////*/
-    error ONLY_CURVE();
-    error NOTHING_TO_CLAIM();
-    error INVALID_BENEFICIARY();
-    error INVALID_DURATION();
+    mapping(address beneficiary => VestingSchedule schedule) public schedules;
 
     /*//////////////////////////////////////////////////////////////
                               MODIFIERS
