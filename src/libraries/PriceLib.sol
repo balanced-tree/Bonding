@@ -52,10 +52,7 @@ library PriceLib {
     /// @param segments The piecewise curve segments
     /// @param supply The supply point (18 decimals)
     /// @return price The spot price (18 decimals)
-    function getSpotPrice(
-        PiecewiseSegment[] memory segments,
-        uint256 supply
-    ) internal pure returns (uint256 price) {
+    function getSpotPrice(PiecewiseSegment[] memory segments, uint256 supply) internal pure returns (uint256 price) {
         SD59x18 s = sd(int256(supply));
         PiecewiseSegment memory seg = _findSegment(segments, supply);
         SD59x18 result = _spotPrice(seg, s);
@@ -75,7 +72,11 @@ library PriceLib {
         PiecewiseSegment[] memory segments,
         uint256 currentSupply,
         uint256 collateralIn
-    ) internal pure returns (uint256 tokensOut) {
+    )
+        internal
+        pure
+        returns (uint256 tokensOut)
+    {
         if (collateralIn == 0) revert ZERO_TOKENS();
 
         SD59x18 target = sd(int256(collateralIn));
@@ -124,7 +125,11 @@ library PriceLib {
         PiecewiseSegment[] memory segments,
         uint256 currentSupply,
         uint256 tokensIn
-    ) internal pure returns (uint256 collateralOut) {
+    )
+        internal
+        pure
+        returns (uint256 collateralOut)
+    {
         if (tokensIn == 0) revert ZERO_TOKENS();
 
         SD59x18 supply = sd(int256(currentSupply));
@@ -146,12 +151,12 @@ library PriceLib {
         PiecewiseSegment[] memory segments,
         uint256 fromSupply,
         uint256 toSupply
-    ) internal pure returns (uint256 area) {
-        SD59x18 result = _integrateAcrossSegments(
-            segments,
-            sd(int256(fromSupply)),
-            sd(int256(toSupply))
-        );
+    )
+        internal
+        pure
+        returns (uint256 area)
+    {
+        SD59x18 result = _integrateAcrossSegments(segments, sd(int256(fromSupply)), sd(int256(toSupply)));
         if (result < sd(0)) revert NEGATIVE_AREA();
         // forge-lint: disable-next-line(unsafe-typecast)
         area = uint256(result.unwrap()); // safe: checked non-negative above
@@ -167,7 +172,11 @@ library PriceLib {
         PiecewiseSegment[] memory segments,
         SD59x18 sFrom,
         SD59x18 sTo
-    ) private pure returns (SD59x18 total) {
+    )
+        private
+        pure
+        returns (SD59x18 total)
+    {
         for (uint256 i; i < segments.length; ++i) {
             SD59x18 segStart = sd(int256(segments[i].supplyStart));
             SD59x18 segEnd = sd(int256(segments[i].supplyEnd));
@@ -217,7 +226,11 @@ library PriceLib {
     function _findSegment(
         PiecewiseSegment[] memory segments,
         uint256 supply
-    ) private pure returns (PiecewiseSegment memory) {
+    )
+        private
+        pure
+        returns (PiecewiseSegment memory)
+    {
         for (uint256 i; i < segments.length; ++i) {
             if (supply >= segments[i].supplyStart && supply < segments[i].supplyEnd) {
                 return segments[i];
