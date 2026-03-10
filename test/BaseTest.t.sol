@@ -23,26 +23,26 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract BaseTest is Test, Constants {
     using Clones for address;
 
-    /// @notice Test accounts
+    // Test accounts
     address public curveCreator;
     address public alice;
     address public bob;
     address public eve;
 
-    /// @notice Fee recipient addresses
+    // Fee recipient addresses
     address public feeRecipient;
     address public protocolTreasury;
 
-    /// @notice Protocol contracts
+    // Protocol contracts
     CurveFactory public curveFactory;
 
-    /// @notice Implementation contracts
+    // Implementation contracts
     Curve public curveImplementation;
     Vesting public vestingImplementation;
     BondingToken public tokenImplementation;
     GraduationManager public graduationManagerImplementation;
 
-    /// @notice Protocol fee
+    // Protocol fee
     uint256 public protocolFeeBps;
 
     // Chain Config
@@ -56,7 +56,24 @@ contract BaseTest is Test, Constants {
     string public optimismRpcUrl = vm.envString(OPTIMISM_RPC_URL_KEY);
     string public baseRpcUrl = vm.envString(BASE_RPC_URL_KEY);
 
+    // Contract Addresses
+    struct Addresses {
+        address curveFactory;
+        address feeRecipient;
+        address protocolTreasury;
+        address curveImplementation;
+        address tokenImplementation;
+        address vestingImplementation;
+        address graduationManagerImplementation;  
+    }
+
+    mapping(uint64 chainId => Addresses addresses) public addresses;
+
     function setUp() public virtual {
+        _prepareForks();
+
+        _deployContracts();
+
         // Deploy implementation contracts
         curveImplementation = new Curve();
         vestingImplementation = new Vesting();
@@ -72,13 +89,6 @@ contract BaseTest is Test, Constants {
         feeRecipient = makeAddr("feeRecipient");
         vm.label(feeRecipient, "FeeRecipient");
 
-        // Label contracts 
-        vm.label(address(curveFactory), "CurveFactory");
-        vm.label(address(curveImplementation), "CurveImplementation");
-        vm.label(address(tokenImplementation), "TokenImplementation");
-        vm.label(address(vestingImplementation), "VestingImplementation");
-        vm.label(address(graduationManagerImplementation), "GraduationManagerImplementation");
-
         // Set up test accounts
         curveCreator = makeAddr("curveCreator");
         vm.label(curveCreator, "CurveCreator");
@@ -88,16 +98,6 @@ contract BaseTest is Test, Constants {
         vm.label(bob, "Bob");
         eve = makeAddr("eve");
         vm.label(eve, "Eve");
-
-        // Deploy protocol contracts
-        curveFactory = new CurveFactory(
-            address(curveImplementation),
-            address(tokenImplementation),
-            address(vestingImplementation),
-            address(graduationManagerImplementation),
-            protocolTreasury,
-            protocolFeeBps
-        );
     }
 
     function _prepareForks() internal {
@@ -117,5 +117,46 @@ contract BaseTest is Test, Constants {
         rpc_urls[ETH] = ethereumRpcUrl;
         rpc_urls[OP] = optimismRpcUrl;
         rpc_urls[BASE] = baseRpcUrl;
+    }
+
+    function _deployContracts() internal {
+        for (uint64 i = 0; i < chainIds.length; i++) {
+            vm.selectFork(forks[chainIds[i]]);
+
+            // Deploy implementation contracts
+            address curveImpl = address(new Curve());
+            addresses[chainIds[i]].curveImplementation = curveImpl;
+            vm.label(addresses[chainIds[i]].curveImplementation, "CurveImplementation");
+
+            address vestingImpl = address(new Vesting());
+            addresses[chainIds[i]].vestingImplementation = vestingImpl;
+            vm.label(addresses[chainIds[i]].vestingImplementation, "VestingImplementation");
+
+            address tokenImpl = address(new BondingToken());
+            addresses[chainIds[i]].tokenImplementation = tokenImpl;
+            vm.label(addresses[chainIds[i]].tokenImplementation, "TokenImplementation");
+
+            address graduationManagerImpl = address(new GraduationManager());
+            addresses[chainIds[i]].graduationManagerImplementation = graduationManagerImpl;
+            vm.label(addresses[chainIds[i]].graduationManagerImplementation, "GraduationManagerImplementation");
+
+            address treasury = makeAddr("protocolTreasury");
+            addresses[chainIds[i]].protocolTreasury = treasury;
+            vm.label(addresses[chainIds[i]].protocolTreasury, "ProtocolTreasury");
+
+            address recipient = makeAddr("feeRecipient");
+            addresses[chainIds[i]].feeRecipient = recipient;
+            vm.label(addresses[chainIds[i]].feeRecipient, "FeeRecipient");
+
+            addresses[chainIds[i]].curveFactory = address(new CurveFactory(
+            address(curveImplementation),
+                addresses[chainIds[i]].tokenImplementation,
+                addresses[chainIds[i]].vestingImplementation,
+                addresses[chainIds[i]].graduationManagerImplementation,
+                addresses[chainIds[i]].protocolTreasury,
+                protocolFeeBps
+            ));
+            vm.label(addresses[chainIds[i]].curveFactory, "CurveFactory");
+        }
     }
 }
