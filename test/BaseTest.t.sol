@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 // Types
-import * as Types from "../src/Types.sol";
+import "../src/Types.sol" as Types;
 import { Constants } from "./Constants.sol";
 
 // Forge Std
@@ -68,7 +68,7 @@ contract BaseTest is Test, Constants {
         address curveImplementation;
         address tokenImplementation;
         address vestingImplementation;
-        address graduationManagerImplementation;  
+        address graduationManagerImplementation;
     }
 
     mapping(uint64 chainId => Addresses addresses) public addresses;
@@ -149,14 +149,16 @@ contract BaseTest is Test, Constants {
             addresses[chainIds[i]].feeRecipient = recipient;
             vm.label(addresses[chainIds[i]].feeRecipient, "FeeRecipient");
 
-            addresses[chainIds[i]].curveFactory = address(new CurveFactory(
-            address(curveImplementation),
-                addresses[chainIds[i]].tokenImplementation,
-                addresses[chainIds[i]].vestingImplementation,
-                addresses[chainIds[i]].graduationManagerImplementation,
-                addresses[chainIds[i]].protocolTreasury,
-                fee
-            ));
+            addresses[chainIds[i]].curveFactory = address(
+                new CurveFactory(
+                    address(curveImplementation),
+                    addresses[chainIds[i]].tokenImplementation,
+                    addresses[chainIds[i]].vestingImplementation,
+                    addresses[chainIds[i]].graduationManagerImplementation,
+                    addresses[chainIds[i]].protocolTreasury,
+                    fee
+                )
+            );
             vm.label(addresses[chainIds[i]].curveFactory, "CurveFactory");
         }
     }
@@ -183,7 +185,7 @@ contract BaseTest is Test, Constants {
         curveCreator = makeAddr("curveCreator");
         vm.makePersistent(curveCreator);
         vm.label(curveCreator, "CurveCreator");
-        
+
         alice = makeAddr("alice");
         vm.makePersistent(alice);
         vm.label(alice, "Alice");
