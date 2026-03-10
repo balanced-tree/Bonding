@@ -53,11 +53,7 @@ contract GraduationManager is Initializable, IGraduationManager {
     /// @param _curve The address of the bonding curve this manager serves
     /// @param _token The address of the bonding curve's ERC20 token
     /// @param _collateralToken The address of the collateral token used by the curve
-    function initialize(
-        address _curve,
-        address _token,
-        address _collateralToken
-    ) external initializer {
+    function initialize(address _curve, address _token, address _collateralToken) external initializer {
         if (_curve == address(0)) revert INVALID_CURVE();
 
         curve = _curve;
@@ -76,7 +72,10 @@ contract GraduationManager is Initializable, IGraduationManager {
         address _collateral,
         uint256 tokenAmount,
         uint256 collateralAmount
-    ) external onlyCurve {
+    )
+        external
+        onlyCurve
+    {
         // TODO: Implement DEX liquidity migration
     }
 }
