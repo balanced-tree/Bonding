@@ -113,7 +113,7 @@ contract CurveFactory is ICurveFactory {
         // Initialize vesting if deployed
         if (vestingInstance != address(0)) {
             Vesting(vestingInstance).initialize(
-                tokenInstance, config.vestingConfig.cliffDuration, config.vestingConfig.vestingDuration
+                tokenInstance, curveInstance, config.vestingConfig.cliffDuration, config.vestingConfig.vestingDuration
             );
         }
 
