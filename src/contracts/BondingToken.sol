@@ -32,13 +32,16 @@ contract BondingToken is Initializable, ERC20Upgradeable {
         string memory symbol_,
         uint8 decimals_,
         address minter_
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         if (minter_ == address(0)) revert INVALID_MINTER();
         __ERC20_init(name_, symbol_);
         _tokenDecimals = decimals_;
         minter = minter_;
     }
-    
+
     /*//////////////////////////////////////////////////////////////
                             EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -57,7 +60,7 @@ contract BondingToken is Initializable, ERC20Upgradeable {
     function burn(address from, uint256 amount) external onlyMinter {
         _burn(from, amount);
     }
-    
+
     /*//////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
