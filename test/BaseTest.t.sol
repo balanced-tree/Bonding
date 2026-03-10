@@ -3,6 +3,7 @@ pragma solidity 0.8.30;
 
 // Types
 import * as Types from "../src/Types.sol";
+import { Constants } from "./Constants.sol";
 
 // Forge Std
 import { Test } from "forge-std/Test.sol";
@@ -19,7 +20,7 @@ import { GraduationManager } from "../src/contracts/GraduationManager.sol";
 import { Clones } from "@openzeppelin/contracts/proxy/Clones.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract BaseTest is Test {
+contract BaseTest is Test, Constants {
     using Clones for address;
 
     /// @notice Test accounts
@@ -43,6 +44,10 @@ contract BaseTest is Test {
 
     /// @notice Protocol fee
     uint256 public protocolFeeBps;
+
+    // Chain Config
+    uint64[] public chainIds = [ETH, OP, BASE];
+    string[] public chainsNames = [ETHEREUM_KEY, OPTIMISM_KEY, BASE_KEY];
 
     function setUp() public virtual {
         // Deploy implementation contracts
