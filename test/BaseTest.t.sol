@@ -46,8 +46,15 @@ contract BaseTest is Test, Constants {
     uint256 public protocolFeeBps;
 
     // Chain Config
+    bool public useLatestFork = true;
     uint64[] public chainIds = [ETH, OP, BASE];
     string[] public chainsNames = [ETHEREUM_KEY, OPTIMISM_KEY, BASE_KEY];
+    // chainID => FORK
+    mapping(uint64 chainId => uint256 fork) public forks;
+    mapping(uint64 chainId => string forkUrl) public rpcURLs;
+    string public ethereumRpcUrl = vm.envString(ETHEREUM_RPC_URL_KEY);
+    string public optimismRpcUrl = vm.envString(OPTIMISM_RPC_URL_KEY);
+    string public baseRpcUrl = vm.envString(BASE_RPC_URL_KEY);
 
     function setUp() public virtual {
         // Deploy implementation contracts
@@ -91,5 +98,24 @@ contract BaseTest is Test, Constants {
             protocolTreasury,
             protocolFeeBps
         );
+    }
+
+    function _prepareForks() internal {
+        mapping(uint64 => uint256) storage forksPerChain = forks;
+
+        if (useLatestFork) {
+            forksPerChain[ETH] = vm.createFork(ethereumRpcUrl);
+            forksPerChain[OP] = vm.createFork(optimismRpcUrl);
+            forksPerChain[BASE] = vm.createFork(baseRpcUrl);
+        } else {
+            forksPerChain[ETH] = vm.createFork(ethereumRpcUrl, ETH_BLOCK);
+            forksPerChain[OP] = vm.createFork(optimismRpcUrl, OP_BLOCK);
+            forksPerChain[BASE] = vm.createFork(baseRpcUrl, BASE_BLOCK);
+        }
+
+        mapping(uint64 => string) storage rpc_urls = rpcURLs;
+        rpc_urls[ETH] = ethereumRpcUrl;
+        rpc_urls[OP] = optimismRpcUrl;
+        rpc_urls[BASE] = baseRpcUrl;
     }
 }
