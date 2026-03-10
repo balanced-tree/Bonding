@@ -4,22 +4,40 @@ pragma solidity 0.8.30;
 /// @title IVesting
 /// @notice Interface for the vesting contract
 interface IVesting {
+
+    /*//////////////////////////////////////////////////////////////
+                                STRUCTS
+    //////////////////////////////////////////////////////////////*/
+    /// @notice The schedule for a beneficiary's vested tokens
+    /// @param totalAmount The total amount of tokens allocated for vesting
+    /// @param startTime The start time of the vesting
+    /// @param claimed The amount of tokens claimed by the beneficiary
     struct VestingSchedule {
         uint256 totalAmount;
         uint256 startTime;
         uint256 claimed;
     }
+
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
+    /// @notice Emitted when the vesting contract is initialized
     event Initialized(address indexed curve);
+
+    /// @notice Emitted when a vesting allocation is added for a beneficiary
     event VestingAdded(address indexed beneficiary, uint256 amount);
+
+    /// @notice Emitted when a beneficiary claims their vested tokens
     event Claimed(address indexed beneficiary, uint256 amountClaimed);
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
     error ALREADY_INITIALIZED();
+
+    /*//////////////////////////////////////////////////////////////
+                                FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Initializes the vesting contract with token and schedule parameters
     /// @dev Called once after deployment. Sets the token to vest and the global schedule.
