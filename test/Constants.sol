@@ -44,5 +44,4 @@ abstract contract Constants {
     address public constant CHAIN_8453_DAI = 0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb;
     address public constant CHAIN_8453_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     address public constant CHAIN_8453_WETH = 0x4200000000000000000000000000000000000006;
-
 }
