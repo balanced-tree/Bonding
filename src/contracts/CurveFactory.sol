@@ -24,14 +24,14 @@ contract CurveFactory is ICurveFactory {
                               CONSTANTS
     //////////////////////////////////////////////////////////////*/
     uint256 private constant BPS_PRECISION = 10_000;
-    uint256 private constant MAX_FEE_BPS = 3_000; // 30% max combined fees
+    uint256 private constant MAX_FEE_BPS = 3000; // 30% max combined fees
     uint256 private constant MAX_SEGMENTS = 3;
 
     /*//////////////////////////////////////////////////////////////
                               STATE VARIABLES
     //////////////////////////////////////////////////////////////*/
     uint256 public immutable PROTOCOL_FEE_BPS;
-    
+
     address public immutable PROTOCOL_TREASURY;
     address public immutable CURVE_IMPLEMENTATION;
     address public immutable TOKEN_IMPLEMENTATION;
@@ -101,20 +101,24 @@ contract CurveFactory is ICurveFactory {
         BondingToken(tokenInstance).initialize(config.name, config.symbol, config.decimals, curveInstance);
 
         // Initialize the curve
-        Curve(curveInstance).initialize(
-            tokenInstance, vestingInstance, graduationManagerInstance, PROTOCOL_TREASURY, PROTOCOL_FEE_BPS, config
-        );
+        Curve(curveInstance)
+            .initialize(
+                tokenInstance, vestingInstance, graduationManagerInstance, PROTOCOL_TREASURY, PROTOCOL_FEE_BPS, config
+            );
 
         // Initialize the graduation manager
-        GraduationManager(graduationManagerInstance).initialize(
-            curveInstance, tokenInstance, config.curveParams.collateralToken
-        );
+        GraduationManager(graduationManagerInstance)
+            .initialize(curveInstance, tokenInstance, config.curveParams.collateralToken);
 
         // Initialize vesting if deployed
         if (vestingInstance != address(0)) {
-            Vesting(vestingInstance).initialize(
-                tokenInstance, curveInstance, config.vestingConfig.cliffDuration, config.vestingConfig.vestingDuration
-            );
+            Vesting(vestingInstance)
+                .initialize(
+                    tokenInstance,
+                    curveInstance,
+                    config.vestingConfig.cliffDuration,
+                    config.vestingConfig.vestingDuration
+                );
         }
 
         // Register
