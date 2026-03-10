@@ -19,9 +19,10 @@ interface IVesting {
     /// @notice Initializes the vesting contract with token and schedule parameters
     /// @dev Called once after deployment. Sets the token to vest and the global schedule.
     /// @param token The address of the ERC20 token subject to vesting
+    /// @param curve The address of the bonding curve (only caller allowed to addVesting)
     /// @param cliff The cliff duration in seconds before any tokens become claimable
     /// @param duration The total vesting duration in seconds (from the start, inclusive of cliff)
-    function initialize(address token, uint256 cliff, uint256 duration) external;
+    function initialize(address token, address curve, uint256 cliff, uint256 duration) external;
 
     /// @notice Adds a vesting allocation for a beneficiary
     /// @dev Creates or increases a vesting schedule for the given address
