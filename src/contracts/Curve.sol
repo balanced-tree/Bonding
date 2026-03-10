@@ -73,7 +73,10 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
         address _treasury,
         uint256 _protocolFeeBps,
         CreateCurveParams memory params
-    ) external initializer {
+    )
+        external
+        initializer
+    {
         token = _token;
         if (_vesting != address(0)) vesting = _vesting;
         graduationManager = _graduationManager;
@@ -183,9 +186,7 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
         // Approve graduation manager to pull collateral
         IERC20(collateralToken).safeIncreaseAllowance(graduationManager, collateralBalance);
 
-        IGraduationManager(graduationManager).graduate(
-            address(this), collateralToken, tokenSupply, collateralBalance
-        );
+        IGraduationManager(graduationManager).graduate(address(this), collateralToken, tokenSupply, collateralBalance);
 
         emit CurveGraduated(collateralBalance, tokenSupply);
     }
@@ -242,9 +243,7 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
 
         IERC20(collateralToken).safeIncreaseAllowance(graduationManager, collateralBalance);
 
-        IGraduationManager(graduationManager).graduate(
-            address(this), collateralToken, tokenSupply, collateralBalance
-        );
+        IGraduationManager(graduationManager).graduate(address(this), collateralToken, tokenSupply, collateralBalance);
 
         emit CurveGraduated(collateralBalance, tokenSupply);
     }
