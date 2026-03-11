@@ -742,4 +742,39 @@ contract CurveFactoryTest is BaseTest, Helpers {
         assertEq(curveFactory.VESTING_IMPLEMENTATION(), address(vestingImplementation));
         assertEq(curveFactory.GRADUATION_MANAGER_IMPLEMENTATION(), address(graduationManagerImplementation));
     }
+
+    /*//////////////////////////////////////////////////////////////
+                          HELPER: DEFAULT PARAMS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Builds a valid CreateCurveParams with a single linear segment.
+    function _defaultParams(
+        Types.PiecewiseSegment[] memory segments
+    ) internal view returns (Types.CreateCurveParams memory) {
+        return Types.CreateCurveParams({
+            name: "Test Curve",
+            symbol: "TEST",
+            decimals: 18,
+            feeRecipient: feeRecipient,
+            feeRecipientBps: protocolFeeBps,
+            curveParams: Types.CurveParams({
+                collateralToken: address(usdc),
+                segments: segments,
+                maxThreshold: 1e18,
+                maxBuyPerTx: 10_000,
+                maxSellPerTx: 10_000
+            }),
+            vestingConfig: Types.VestingConfig({ cliffDuration: 0, vestingDuration: 0 })
+        });
+    }
+
+    /// @dev Overload with no-fee-recipient defaults and a single linear segment.
+    function _defaultParamsNoFee() internal view returns (Types.CreateCurveParams memory) {
+        Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
+        segs[0] = _createLinearSegment(0, 1e18);
+        Types.CreateCurveParams memory params = _defaultParams(segs);
+        params.feeRecipient = address(0);
+        params.feeRecipientBps = 0;
+        return params;
+    }
 }
