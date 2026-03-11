@@ -9,7 +9,7 @@ interface ICurveFactory {
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
-    event CurveCreated(address indexed curve, address indexed token, address indexed creator);
+    event CurveCreated(address indexed curve, address indexed token, address indexed creator, address vesting, address graduationManager);
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -28,7 +28,10 @@ interface ICurveFactory {
     ///      parameters, and registers the new curve in the factory's registry.
     /// @param params The full configuration for the new curve (token metadata, segments, vesting, etc.)
     /// @return curve The address of the newly deployed bonding curve
-    function createCurve(CreateCurveParams calldata params) external returns (address curve);
+    /// @return token The address of the newly deployed token
+    /// @return vesting The address of the newly deployed vesting contract
+    /// @return graduationManager The address of the newly deployed graduation manager contract
+    function createCurve(CreateCurveParams calldata params) external returns (address curve, address token, address vesting, address graduationManager);
 
     /// @notice Returns the total number of bonding curves created by this factory
     /// @return The count of registered curves
@@ -42,4 +45,14 @@ interface ICurveFactory {
     /// @notice Returns all bonding curve addresses deployed by this factory
     /// @return An array of all registered curve addresses
     function getCurves() external view returns (address[] memory);
+
+    /// @notice Returns the address of the token associated with a given curve
+    /// @param curve The address of the curve
+    /// @return The address of the token associated with the curve
+    function getToken(address curve) external view returns (address);
+
+    /// @notice Returns the address of the curve at a given index
+    /// @param index The index of the curve
+    /// @return The address of the curve at the given index
+    function getCurve(uint256 index) external view returns (address);
 }

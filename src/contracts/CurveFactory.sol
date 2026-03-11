@@ -41,6 +41,9 @@ contract CurveFactory is ICurveFactory {
     EnumerableSet.AddressSet private _curves;
 
     mapping(address curve => address token) public curveToToken;
+    mapping(address token => address curve) public tokenToCurve;
+    mapping(address curve => address vesting) public curveToVesting;
+    mapping(address curve => address graduationManager) public curveToGraduationManager;
 
     /*//////////////////////////////////////////////////////////////
                               CONSTRUCTOR
@@ -78,7 +81,12 @@ contract CurveFactory is ICurveFactory {
                               CURVE CREATION
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ICurveFactory
-    function createCurve(CreateCurveParams calldata config) external returns (address curve) {
+    function createCurve(CreateCurveParams calldata config) external returns (
+        address curveInstance,
+        address tokenInstance,
+        address vestingInstance,
+        address graduationManagerInstance
+    ) {
         if (config.curveParams.collateralToken == address(0)) revert INVALID_CONFIG();
         _validateSegments(config.curveParams.segments);
         _validateFeeRecipient(config.feeRecipient, config.feeRecipientBps);
@@ -87,12 +95,11 @@ contract CurveFactory is ICurveFactory {
         bytes32 salt = keccak256(abi.encode(msg.sender, config));
 
         // Clone all core contracts
-        address curveInstance = CURVE_IMPLEMENTATION.cloneDeterministic(salt);
-        address tokenInstance = TOKEN_IMPLEMENTATION.cloneDeterministic(salt);
-        address graduationManagerInstance = GRADUATION_MANAGER_IMPLEMENTATION.cloneDeterministic(salt);
+        curveInstance = CURVE_IMPLEMENTATION.cloneDeterministic(salt);
+        tokenInstance = TOKEN_IMPLEMENTATION.cloneDeterministic(salt);
+        graduationManagerInstance = GRADUATION_MANAGER_IMPLEMENTATION.cloneDeterministic(salt);
 
         // Clone vesting only if configured
-        address vestingInstance;
         if (config.vestingConfig.cliffDuration > 0 && config.vestingConfig.vestingDuration > 0) {
             vestingInstance = VESTING_IMPLEMENTATION.cloneDeterministic(salt);
         }
@@ -124,10 +131,10 @@ contract CurveFactory is ICurveFactory {
         // Register
         _curves.add(curveInstance);
         curveToToken[curveInstance] = tokenInstance;
+        curveToGraduationManager[curveInstance] = graduationManagerInstance;
+        curveToVesting[curveInstance] = vestingInstance;
 
-        emit CurveCreated(curveInstance, tokenInstance, msg.sender);
-
-        return curveInstance;
+        emit CurveCreated(curveInstance, tokenInstance, msg.sender, vestingInstance, graduationManagerInstance);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -146,6 +153,16 @@ contract CurveFactory is ICurveFactory {
     /// @inheritdoc ICurveFactory
     function getCurves() external view returns (address[] memory) {
         return _curves.values();
+    }
+
+    /// @inheritdoc ICurveFactory
+    function getCurve(uint256 index) external view returns (address) {
+        return _curves.values()[index];
+    }
+
+    /// @inheritdoc ICurveFactory
+    function getToken(address curve) external view returns (address) {
+        return curveToToken[curve];
     }
 
     /*//////////////////////////////////////////////////////////////
