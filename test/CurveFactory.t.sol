@@ -26,7 +26,7 @@ contract CurveFactoryTest is BaseTest, Helpers {
             }))
         });
 
-        (address curve, address token) = curveFactory.createCurve(
+        (address curve, address token, address vesting, address graduationManager) = curveFactory.createCurve(
           Types.CreateCurveParams({
               name: "Test Curve",
               symbol: "TEST",
@@ -50,5 +50,7 @@ contract CurveFactoryTest is BaseTest, Helpers {
         assertEq(curveFactory.isCurve(address(curve)), true);
         assertEq(curveFactory.getCurves()[0], address(curve));
         assertEq(curveFactory.getToken(address(curve)), address(token));
+        assertEq(curveFactory.getVesting(address(curve)), address(0));
+        assertEq(curveFactory.getGraduationManager(address(curve)), address(graduationManager));
     }
 }

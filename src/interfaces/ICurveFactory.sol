@@ -9,7 +9,13 @@ interface ICurveFactory {
     /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
-    event CurveCreated(address indexed curve, address indexed token, address indexed creator, address vesting, address graduationManager);
+    event CurveCreated(
+        address indexed curve,
+        address indexed token,
+        address indexed creator,
+        address vesting,
+        address graduationManager
+    );
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -31,7 +37,9 @@ interface ICurveFactory {
     /// @return token The address of the newly deployed token
     /// @return vesting The address of the newly deployed vesting contract
     /// @return graduationManager The address of the newly deployed graduation manager contract
-    function createCurve(CreateCurveParams calldata params) external returns (address curve, address token, address vesting, address graduationManager);
+    function createCurve(CreateCurveParams calldata params)
+        external
+        returns (address curve, address token, address vesting, address graduationManager);
 
     /// @notice Returns the total number of bonding curves created by this factory
     /// @return The count of registered curves
@@ -46,13 +54,23 @@ interface ICurveFactory {
     /// @return An array of all registered curve addresses
     function getCurves() external view returns (address[] memory);
 
+    /// @notice Returns the address of the curve at a given index
+    /// @param index The index of the curve
+    /// @return The address of the curve at the given index
+    function getCurve(uint256 index) external view returns (address);
+
     /// @notice Returns the address of the token associated with a given curve
     /// @param curve The address of the curve
     /// @return The address of the token associated with the curve
     function getToken(address curve) external view returns (address);
 
-    /// @notice Returns the address of the curve at a given index
-    /// @param index The index of the curve
-    /// @return The address of the curve at the given index
-    function getCurve(uint256 index) external view returns (address);
+    /// @notice Returns the address of the vesting contract associated with a given curve
+    /// @param curve The address of the curve
+    /// @return The address of the vesting contract associated with the curve
+    function getVesting(address curve) external view returns (address);
+
+    /// @notice Returns the address of the graduation manager contract associated with a given curve
+    /// @param curve The address of the curve
+    /// @return The address of the graduation manager contract associated with the curve
+    function getGraduationManager(address curve) external view returns (address);
 }

@@ -81,12 +81,15 @@ contract CurveFactory is ICurveFactory {
                               CURVE CREATION
     //////////////////////////////////////////////////////////////*/
     /// @inheritdoc ICurveFactory
-    function createCurve(CreateCurveParams calldata config) external returns (
-        address curveInstance,
-        address tokenInstance,
-        address vestingInstance,
-        address graduationManagerInstance
-    ) {
+    function createCurve(CreateCurveParams calldata config)
+        external
+        returns (
+            address curveInstance,
+            address tokenInstance,
+            address vestingInstance,
+            address graduationManagerInstance
+        )
+    {
         if (config.curveParams.collateralToken == address(0)) revert INVALID_CONFIG();
         _validateSegments(config.curveParams.segments);
         _validateFeeRecipient(config.feeRecipient, config.feeRecipientBps);
@@ -163,6 +166,16 @@ contract CurveFactory is ICurveFactory {
     /// @inheritdoc ICurveFactory
     function getToken(address curve) external view returns (address) {
         return curveToToken[curve];
+    }
+
+    /// @inheritdoc ICurveFactory
+    function getVesting(address curve) external view returns (address) {
+        return curveToVesting[curve];
+    }
+
+    /// @inheritdoc ICurveFactory
+    function getGraduationManager(address curve) external view returns (address) {
+        return curveToGraduationManager[curve];
     }
 
     /*//////////////////////////////////////////////////////////////
