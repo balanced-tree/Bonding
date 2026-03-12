@@ -399,7 +399,7 @@ contract CurveTest is BaseTest, Helpers {
     }
 
     /*//////////////////////////////////////////////////////////////
-                          BUY: SUCCESS — BASIC
+                          BUY: SUCCESS
     //////////////////////////////////////////////////////////////*/
 
     function test_buy_basic() public {
