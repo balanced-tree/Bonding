@@ -398,7 +398,319 @@ contract CurveTest is BaseTest, Helpers {
         vm.stopPrank();
     }
 
-    
+    /*//////////////////////////////////////////////////////////////
+                          BUY: SUCCESS — BASIC
+    //////////////////////////////////////////////////////////////*/
+
+    function test_buy_basic() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        uint256 collateral = 100e6; // 100 USDC
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral);
+        uint256 tokensOut = buyCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        // Alice received tokens
+        assertEq(buyToken.balanceOf(alice), tokensOut);
+        assertGt(tokensOut, 0);
+
+        // Alice's USDC decreased by the full collateral amount
+        assertEq(usdc.balanceOf(alice), aliceUsdcBefore - collateral);
+
+        // Token supply increased
+        assertEq(buyToken.totalSupply(), tokensOut);
+
+        // Spot price increased from 0
+        assertGt(buyCurve.getPrice(), 0);
+    }
+
+    function test_buy_matchesQuote() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        uint256 collateral = 50e6;
+        uint256 quoted = buyCurve.getBuyQuote(collateral);
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral);
+        uint256 actual = buyCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        assertEq(actual, quoted);
+    }
+
+    function test_buy_exactSlippageAccepted() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        uint256 collateral = 100e6;
+        uint256 expectedTokens = buyCurve.getBuyQuote(collateral);
+
+        // Setting minTokensOut exactly to expected should succeed
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral);
+        uint256 tokensOut = buyCurve.buy(collateral, expectedTokens);
+        vm.stopPrank();
+
+        assertEq(tokensOut, expectedTokens);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                      BUY: SUCCESS — FEE DISTRIBUTION
+    //////////////////////////////////////////////////////////////*/
+
+    function test_buy_feeDistribution() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        uint256 collateral = 100e6; // 100 USDC
+
+        // protocolFeeBps = 1000 (10%), feeRecipientBps = 1000 (10%)
+        uint256 expectedProtocolFee = (collateral * protocolFeeBps) / 10_000; // 10 USDC
+        uint256 expectedCreatorFee = (collateral * protocolFeeBps) / 10_000;  // 10 USDC
+        uint256 expectedNetCollateral = collateral - expectedProtocolFee - expectedCreatorFee; // 80 USDC
+
+        uint256 treasuryBefore = usdc.balanceOf(protocolTreasury);
+        uint256 feeRecipientBefore = usdc.balanceOf(feeRecipient);
+        uint256 curveBefore = usdc.balanceOf(address(buyCurve));
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral);
+        buyCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        // Protocol treasury received protocol fee
+        assertEq(usdc.balanceOf(protocolTreasury) - treasuryBefore, expectedProtocolFee);
+
+        // Fee recipient received creator fee
+        assertEq(usdc.balanceOf(feeRecipient) - feeRecipientBefore, expectedCreatorFee);
+
+        // Curve contract holds the net collateral
+        assertEq(usdc.balanceOf(address(buyCurve)) - curveBefore, expectedNetCollateral);
+    }
+
+    function test_buy_noCreatorFee() public {
+        (Curve noFeeCurve,) = _deployNoFeeCurve();
+
+        uint256 collateral = 100e6;
+        uint256 expectedProtocolFee = (collateral * protocolFeeBps) / 10_000; // 10 USDC
+        uint256 expectedNetCollateral = collateral - expectedProtocolFee;     // 90 USDC
+
+        uint256 treasuryBefore = usdc.balanceOf(protocolTreasury);
+        uint256 feeRecipientBefore = usdc.balanceOf(feeRecipient);
+
+        vm.startPrank(alice);
+        usdc.approve(address(noFeeCurve), collateral);
+        noFeeCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        // Protocol fee still collected
+        assertEq(usdc.balanceOf(protocolTreasury) - treasuryBefore, expectedProtocolFee);
+
+        // Fee recipient unchanged (no creator fee)
+        assertEq(usdc.balanceOf(feeRecipient), feeRecipientBefore);
+
+        // Curve holds the net (90 USDC instead of 80 USDC)
+        assertEq(usdc.balanceOf(address(noFeeCurve)), expectedNetCollateral);
+    }
+
+    function test_buy_moreTokensWithNoCreatorFee() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+        (Curve noFeeCurve,) = _deployNoFeeCurve();
+
+        uint256 collateral = 100e6;
+
+        // Buy on curve with creator fee (20% total fees)
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral);
+        uint256 tokensWithFee = buyCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        // Buy on curve without creator fee (10% total fees)
+        vm.startPrank(bob);
+        usdc.approve(address(noFeeCurve), collateral);
+        uint256 tokensNoFee = noFeeCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        // More net collateral -> more tokens
+        assertGt(tokensNoFee, tokensWithFee);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    BUY: SUCCESS — EVENT EMISSION
+    //////////////////////////////////////////////////////////////*/
+
+    function test_buy_emitsTokensBought() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        uint256 collateral = 100e6;
+        uint256 expectedTokens = buyCurve.getBuyQuote(collateral);
+        uint256 expectedTotalFee = (collateral * protocolFeeBps * 2) / 10_000; // 20% total
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral);
+
+        vm.expectEmit(true, false, false, true);
+        emit ICurve.TokensBought(alice, collateral, expectedTokens, expectedTotalFee);
+        buyCurve.buy(collateral, 0);
+
+        vm.stopPrank();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                  BUY: SUCCESS — MULTIPLE BUYS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_buy_multipleBuys_priceIncreases() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        uint256 collateral = 50e6;
+
+        // First buy at supply=0 (cheap)
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral * 3);
+        uint256 tokens1 = buyCurve.buy(collateral, 0);
+        uint256 priceAfterFirst = buyCurve.getPrice();
+
+        // Second buy at higher supply (more expensive)
+        uint256 tokens2 = buyCurve.buy(collateral, 0);
+        uint256 priceAfterSecond = buyCurve.getPrice();
+
+        // Third buy at even higher supply
+        uint256 tokens3 = buyCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        // Price strictly increases after each buy
+        assertGt(priceAfterSecond, priceAfterFirst);
+
+        // Same collateral buys fewer tokens each time (diminishing returns)
+        assertGt(tokens1, tokens2);
+        assertGt(tokens2, tokens3);
+    }
+
+    function test_buy_multipleBuyers() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        uint256 collateral = 50e6;
+
+        // Alice buys first
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral);
+        uint256 aliceTokens = buyCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        // Bob buys second (at higher price)
+        vm.startPrank(bob);
+        usdc.approve(address(buyCurve), collateral);
+        uint256 bobTokens = buyCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        // Both have tokens
+        assertEq(buyToken.balanceOf(alice), aliceTokens);
+        assertEq(buyToken.balanceOf(bob), bobTokens);
+
+        // Total supply = sum
+        assertEq(buyToken.totalSupply(), aliceTokens + bobTokens);
+
+        // Alice got more tokens (bought at lower price)
+        assertGt(aliceTokens, bobTokens);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                  BUY: SUCCESS — GRADUATION TRIGGER
+    //////////////////////////////////////////////////////////////*/
+
+    function test_buy_triggersGraduation() public {
+        (Curve gradCurve,) = _deployGraduatableCurve();
+
+        assertFalse(gradCurve.graduated());
+
+        // Threshold = 10 USDC. With 20% fees, need net >= 10 USDC
+        // collateral * 80% >= 10 USDC -> collateral >= 12.5 USDC. Use 15 USDC.
+        uint256 collateral = 15e6;
+
+        vm.startPrank(alice);
+        usdc.approve(address(gradCurve), collateral);
+        gradCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        assertTrue(gradCurve.graduated());
+    }
+
+    function test_buy_emitsCurveGraduated() public {
+        (Curve gradCurve,) = _deployGraduatableCurve();
+
+        uint256 collateral = 15e6;
+
+        vm.startPrank(alice);
+        usdc.approve(address(gradCurve), collateral);
+
+        // Expect CurveGraduated event
+        vm.expectEmit(false, false, false, false);
+        emit ICurve.CurveGraduated(0, 0);
+        gradCurve.buy(collateral, 0);
+
+        vm.stopPrank();
+    }
+
+    function test_buy_doesNotGraduateBelowThreshold() public {
+        (Curve gradCurve,) = _deployGraduatableCurve();
+
+        // Threshold = 10 USDC. Buy small so net < 10
+        uint256 collateral = 5e6; // net = 4 USDC
+        vm.startPrank(alice);
+        usdc.approve(address(gradCurve), collateral);
+        gradCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        assertFalse(gradCurve.graduated());
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    BUY: SUCCESS — STATE CONSISTENCY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_buy_supplyMatchesTotalMinted() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 200e6);
+        uint256 tokens1 = buyCurve.buy(100e6, 0);
+        uint256 tokens2 = buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        assertEq(buyToken.totalSupply(), tokens1 + tokens2);
+        assertEq(buyToken.balanceOf(alice), tokens1 + tokens2);
+    }
+
+    function test_buy_priceEqualsSupplyOnLinearCurve() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        // For LINEAR p(s) = s, price should equal the current supply
+        uint256 supply = buyToken.totalSupply();
+        uint256 price = buyCurve.getPrice();
+        assertEq(price, supply);
+    }
+
+    function test_buy_curveCollateralBalanceConsistent() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        uint256 collateral = 100e6;
+        uint256 expectedNet = collateral * 8000 / 10_000; // 80% after 20% fees
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral);
+        buyCurve.buy(collateral, 0);
+        vm.stopPrank();
+
+        // Curve holds exactly the net collateral
+        assertEq(usdc.balanceOf(address(buyCurve)), expectedNet);
+    }
 
     /*//////////////////////////////////////////////////////////////
                       HELPERS: CURVE DEPLOYMENT
