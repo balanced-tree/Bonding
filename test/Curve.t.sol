@@ -27,7 +27,7 @@ contract CurveTest is BaseTest, Helpers {
 
         Types.PiecewiseSegment[] memory segs = _createLinearParabolicSegments(500e18);
 
-        (address curve, address token, address vesting, address graduationManager) =
+        (address _curve, address _token, address _vesting, address _gm) =
             curveFactory.createCurve(
                 Types.CreateCurveParams({
                     name: "Bonding Curve",
@@ -48,10 +48,10 @@ contract CurveTest is BaseTest, Helpers {
 
         vm.stopPrank();
 
-        curve = Curve(curve);
-        token = BondingToken(token);
-        vesting = Vesting(vesting);
-        graduationManager = GraduationManager(graduationManager);
+        curve = Curve(_curve);
+        token = BondingToken(_token);
+        vesting = Vesting(_vesting);
+        graduationManager = GraduationManager(_gm);
     }
 
     function test_initialize() public {
