@@ -55,6 +55,10 @@ contract CurveTest is BaseTest, Helpers {
         graduationManager = GraduationManager(_gm);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            INITIALIZATION
+    //////////////////////////////////////////////////////////////*/
+
     function test_initialize() public view {
         // Token & collateral addresses
         assertEq(curve.token(), address(token));
@@ -103,4 +107,71 @@ contract CurveTest is BaseTest, Helpers {
         assertEq(token.decimals(), 18);
         assertEq(token.totalSupply(), 0);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                          GETTER: getTokenAddress
+    //////////////////////////////////////////////////////////////*/
+
+    function test_getTokenAddress() public view {
+        assertEq(curve.getTokenAddress(), address(token));
+        assertEq(curve.getTokenAddress(), curve.token());
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        GETTER: getCollateralAddress
+    //////////////////////////////////////////////////////////////*/
+
+    function test_getCollateralAddress() public view {
+        assertEq(curve.getCollateralAddress(), address(usdc));
+        assertEq(curve.getCollateralAddress(), curve.collateralToken());
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            GETTER: getPrice
+    //////////////////////////////////////////////////////////////*/
+
+    function test_getPrice_atZeroSupply() public view {
+        // LINEAR segment: p(s) = m*s + b = 1*0 + 0 = 0
+        assertEq(curve.getPrice(), 0);
+    }
+
+    function test_getPrice_afterSupplyIncrease_linearSegment() public {
+        // Mint tokens to simulate supply increase (minter = curve)
+        uint256 mintAmount = 100e18;
+        vm.prank(address(curve));
+        token.mint(alice, mintAmount);
+
+        // LINEAR segment: p(s) = 1*s + 0 = s
+        // At supply = 100e18, price should be 100e18
+        assertEq(curve.getPrice(), mintAmount);
+    }
+
+    function test_getPrice_atSegmentBoundary() public {
+        // Mint exactly to the boundary between LINEAR and PARABOLIC (50_000e18)
+        uint256 boundary = 50_000e18;
+        vm.prank(address(curve));
+        token.mint(alice, boundary);
+
+        // At supply = 50_000e18, we're at the start of the PARABOLIC segment
+        uint256 price = curve.getPrice();
+        assertGt(price, 0);
+    }
+
+    function test_getPrice_inParabolicSegment() public {
+        // Mint past the boundary into the parabolic segment
+        uint256 supply = 60_000e18;
+        vm.prank(address(curve));
+        token.mint(alice, supply);
+
+        // PARABOLIC: p(s) = s² (a=1, b=0, c=0)
+        // Price should be much larger than at the boundary
+        uint256 price = curve.getPrice();
+        assertGt(price, 0);
+
+        // Price in parabolic segment should be greater than linear would give
+        // Linear would give p = 60_000e18, but parabolic gives p = (60_000e18)²/1e18
+        assertGt(price, 60_000e18);
+    }
+
+    
 }
