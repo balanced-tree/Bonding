@@ -279,9 +279,10 @@ contract CurveTest is BaseTest, Helpers {
         uint256 quotedFull = curve.getSellQuote(mintAmount);
         assertGt(quotedFull, quotedHalf);
 
-        // Due to the curve shape, selling all should give more than 2x half
-        // because the second half of supply sits at higher prices
-        assertGt(quotedFull, quotedHalf * 2);
+        // Due to the curve shape (increasing price), the top half of supply
+        // is more valuable than the bottom half. So selling all gives LESS
+        // than 2x selling the top half.
+        assertLt(quotedFull, quotedHalf * 2);
     }
 
     function test_getSellQuote_decreasesWithFees() public {
