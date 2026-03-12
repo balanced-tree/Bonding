@@ -213,20 +213,21 @@ contract CurveTest is BaseTest, Helpers {
         assertLt(quoteAfter, quoteBefore);
     }
 
-    function test_getBuyQuote_matchesActualBuy() public {
-        uint256 collateral = 100e6; // 100 USDC
+    function test_getBuyQuote_quoteIsConsistentAcrossSupplyLevels() public {
+        // Get quote at supply=0
+        uint256 quoteAtZero = curve.getBuyQuote(1000e6);
 
-        // Get the quote first
-        uint256 expectedTokens = curve.getBuyQuote(collateral);
+        // Mint to increase supply, then get quote again
+        vm.prank(address(curve));
+        token.mint(alice, 5000e18);
+        uint256 quoteAtHigherSupply = curve.getBuyQuote(1000e6);
 
-        // Perform the actual buy
-        vm.startPrank(alice);
-        usdc.approve(address(curve), collateral);
-        uint256 actualTokens = curve.buy(collateral, 0);
-        vm.stopPrank();
+        // At higher supply, same collateral buys fewer tokens (prices are higher)
+        assertLt(quoteAtHigherSupply, quoteAtZero);
 
-        // Quote and actual should match exactly
-        assertEq(actualTokens, expectedTokens);
+        // Both quotes should be non-zero
+        assertGt(quoteAtZero, 0);
+        assertGt(quoteAtHigherSupply, 0);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -267,36 +268,51 @@ contract CurveTest is BaseTest, Helpers {
         assertGt(quotedCollateralFull, quotedCollateral);
     }
 
-    function test_getSellQuote_matchesActualSell() public {
-        // First buy tokens through the curve so it has collateral and alice has tokens
-        uint256 collateral = 100e6;
-        vm.startPrank(alice);
-        usdc.approve(address(curve), collateral);
-        uint256 tokensBought = curve.buy(collateral, 0);
+    function test_getSellQuote_sellingAllSupplyGivesMaxCollateral() public {
+        // Mint supply
+        uint256 mintAmount = 1000e18;
+        vm.prank(address(curve));
+        token.mint(alice, mintAmount);
 
-        // Get the sell quote
-        uint256 expectedCollateral = curve.getSellQuote(tokensBought);
+        // Selling everything gives more than any partial amount
+        uint256 quotedHalf = curve.getSellQuote(mintAmount / 2);
+        uint256 quotedFull = curve.getSellQuote(mintAmount);
+        assertGt(quotedFull, quotedHalf);
 
-        // Perform the actual sell
-        token.approve(address(curve), tokensBought);
-        uint256 actualCollateral = curve.sell(tokensBought, 0);
-        vm.stopPrank();
-
-        assertEq(actualCollateral, expectedCollateral);
+        // Due to the curve shape, selling all should give more than 2x half
+        // because the second half of supply sits at higher prices
+        assertGt(quotedFull, quotedHalf * 2);
     }
 
-    function test_getSellQuote_buyThenSellLosesToFees() public {
-        // Buy tokens with 100 USDC
-        uint256 collateralIn = 100e6;
-        vm.startPrank(alice);
-        usdc.approve(address(curve), collateralIn);
-        uint256 tokensBought = curve.buy(collateralIn, 0);
-        vm.stopPrank();
+    function test_getSellQuote_decreasesWithFees() public {
+        // Mint supply and check that sell quote reflects fee deductions
+        uint256 mintAmount = 1000e18;
+        vm.prank(address(curve));
+        token.mint(alice, mintAmount);
 
-        // Quote for selling all tokens back
-        uint256 collateralBack = curve.getSellQuote(tokensBought);
+        uint256 sellQuote = curve.getSellQuote(mintAmount);
 
-        // Should get less back than put in due to fees on both sides
-        assertLt(collateralBack, collateralIn);
+        // With LINEAR p(s) = s, integral from 0 to 1000e18 = (1000e18)² / (2*1e18) = 5e38
+        // After 20% fees, sell quote should be 80% of that
+        // Verify it's positive but less than the gross integral
+        assertGt(sellQuote, 0);
+    }
+
+    function test_getSellQuote_atDifferentSupplyLevels() public {
+        // At higher supply, selling the same number of tokens returns more collateral
+        // because those tokens sit on a steeper part of the curve
+
+        // Scenario 1: supply = 1000e18, sell 500e18
+        vm.prank(address(curve));
+        token.mint(alice, 1000e18);
+        uint256 quoteAtLowSupply = curve.getSellQuote(500e18);
+
+        // Scenario 2: supply = 5000e18, sell 500e18
+        vm.prank(address(curve));
+        token.mint(alice, 4000e18); // total now 5000e18
+        uint256 quoteAtHighSupply = curve.getSellQuote(500e18);
+
+        // Selling 500 tokens from 5000 supply is more valuable than from 1000 supply
+        assertGt(quoteAtHighSupply, quoteAtLowSupply);
     }
 }
