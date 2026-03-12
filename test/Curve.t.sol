@@ -229,5 +229,74 @@ contract CurveTest is BaseTest, Helpers {
         assertEq(actualTokens, expectedTokens);
     }
 
-    
+    /*//////////////////////////////////////////////////////////////
+                          GETTER: getSellQuote
+    //////////////////////////////////////////////////////////////*/
+
+    function test_getSellQuote_returnsNonZeroForNonZeroSupply() public {
+        // Need supply for sell quote to have meaning
+        uint256 mintAmount = 1000e18;
+        vm.prank(address(curve));
+        token.mint(alice, mintAmount);
+
+        uint256 collateralOut = curve.getSellQuote(100e18);
+        assertGt(collateralOut, 0);
+    }
+
+    function test_getSellQuote_moreTokensGivesMoreCollateral() public {
+        uint256 mintAmount = 1000e18;
+        vm.prank(address(curve));
+        token.mint(alice, mintAmount);
+
+        uint256 collateralSmall = curve.getSellQuote(100e18);
+        uint256 collateralLarge = curve.getSellQuote(500e18);
+        assertGt(collateralLarge, collateralSmall);
+    }
+
+    function test_getSellQuote_accountsForFees() public {
+        // Mint supply
+        uint256 mintAmount = 1000e18;
+        vm.prank(address(curve));
+        token.mint(alice, mintAmount);
+
+        uint256 sellAmount = 500e18;
+        uint256 quotedCollateral = curve.getSellQuote(sellAmount);
+
+        // Selling the full supply should return more collateral than partial
+        uint256 quotedCollateralFull = curve.getSellQuote(mintAmount);
+        assertGt(quotedCollateralFull, quotedCollateral);
+    }
+
+    function test_getSellQuote_matchesActualSell() public {
+        // First buy tokens through the curve so it has collateral and alice has tokens
+        uint256 collateral = 100e6;
+        vm.startPrank(alice);
+        usdc.approve(address(curve), collateral);
+        uint256 tokensBought = curve.buy(collateral, 0);
+
+        // Get the sell quote
+        uint256 expectedCollateral = curve.getSellQuote(tokensBought);
+
+        // Perform the actual sell
+        token.approve(address(curve), tokensBought);
+        uint256 actualCollateral = curve.sell(tokensBought, 0);
+        vm.stopPrank();
+
+        assertEq(actualCollateral, expectedCollateral);
+    }
+
+    function test_getSellQuote_buyThenSellLosesToFees() public {
+        // Buy tokens with 100 USDC
+        uint256 collateralIn = 100e6;
+        vm.startPrank(alice);
+        usdc.approve(address(curve), collateralIn);
+        uint256 tokensBought = curve.buy(collateralIn, 0);
+        vm.stopPrank();
+
+        // Quote for selling all tokens back
+        uint256 collateralBack = curve.getSellQuote(tokensBought);
+
+        // Should get less back than put in due to fees on both sides
+        assertLt(collateralBack, collateralIn);
+    }
 }
