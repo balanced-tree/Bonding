@@ -25,7 +25,7 @@ contract CurveTest is BaseTest, Helpers {
 
         vm.startPrank(curveCreator);
 
-        Types.PiecewiseSegment[] memory segs = _createLinearParabolicSegments(500e18);
+        Types.PiecewiseSegment[] memory segs = _createLinearParabolicSegments(50_000e18);
 
         (address _curve, address _token, address _vesting, address _gm) =
             curveFactory.createCurve(
