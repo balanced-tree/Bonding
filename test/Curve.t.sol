@@ -30,8 +30,8 @@ contract CurveTest is BaseTest, Helpers {
         (address curve, address token, address vesting, address graduationManager) =
             curveFactory.createCurve(
                 Types.CreateCurveParams({
-                    name: "Test Curve",
-                    symbol: "TEST",
+                    name: "Bonding Curve",
+                    symbol: "BOND",
                     decimals: 18,
                     feeRecipient: feeRecipient,
                     feeRecipientBps: protocolFeeBps,
