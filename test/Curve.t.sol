@@ -320,4 +320,178 @@ contract CurveTest is BaseTest, Helpers {
         // Selling 500 tokens from 5000 supply is more valuable than from 1000 supply
         assertGt(quoteAtHighSupply, quoteAtLowSupply);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            BUY: REVERTS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_buy_revert_zeroAmount() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        vm.prank(alice);
+        vm.expectRevert(ICurve.INVALID_AMOUNT.selector);
+        buyCurve.buy(0, 0);
+    }
+
+    function test_buy_revert_alreadyGraduated() public {
+        (Curve gradCurve,) = _deployGraduatableCurve();
+
+        // Buy enough to trigger graduation (threshold = 10 USDC)
+        // Net collateral after 20% fees needs to be >= 10 USDC, so spend 15 USDC
+        vm.startPrank(alice);
+        usdc.approve(address(gradCurve), 15e6);
+        gradCurve.buy(15e6, 0);
+        vm.stopPrank();
+
+        assertTrue(gradCurve.graduated());
+
+        // Now try to buy again
+        vm.startPrank(alice);
+        usdc.approve(address(gradCurve), 1e6);
+        vm.expectRevert(ICurve.ALREADY_GRADUATED.selector);
+        gradCurve.buy(1e6, 0);
+        vm.stopPrank();
+    }
+
+    function test_buy_revert_slippageExceeded() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        uint256 collateral = 100e6;
+        uint256 expectedTokens = buyCurve.getBuyQuote(collateral);
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral);
+        // Set minTokensOut higher than what we'd actually get
+        vm.expectRevert(ICurve.SLIPPAGE_EXCEEDED.selector);
+        buyCurve.buy(collateral, expectedTokens + 1);
+        vm.stopPrank();
+    }
+
+    function test_buy_revert_exceedsMaxPerTx() public {
+        // Use the default curve which has maxBuyPerTx = 10_000
+        // Any non-zero USDC buy produces far more than 10_000 token-wei
+        vm.startPrank(alice);
+        usdc.approve(address(curve), 1e6);
+        vm.expectRevert(ICurve.EXCEEDS_MAX_PER_TX.selector);
+        curve.buy(1e6, 0);
+        vm.stopPrank();
+    }
+
+    function test_buy_revert_noApproval() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        // Don't approve — SafeERC20 will revert
+        vm.prank(alice);
+        vm.expectRevert();
+        buyCurve.buy(100e6, 0);
+    }
+
+    function test_buy_revert_insufficientBalance() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        // Eve has 1000 USDC, try to buy with way more
+        uint256 tooMuch = 1_000_000e6;
+        vm.startPrank(eve);
+        usdc.approve(address(buyCurve), tooMuch);
+        vm.expectRevert();
+        buyCurve.buy(tooMuch, 0);
+        vm.stopPrank();
+    }
+
+    
+
+    /*//////////////////////////////////////////////////////////////
+                      HELPERS: CURVE DEPLOYMENT
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Deploys a curve with maxBuyPerTx=0 (no limit) for buy tests.
+    ///      Uses a large maxThreshold so graduation doesn't auto-trigger.
+    function _deployBuyCurve()
+        internal
+        returns (Curve buyCurve, BondingToken buyToken)
+    {
+        Types.PiecewiseSegment[] memory segs = _createLinearParabolicSegments(50_000e18);
+
+        vm.prank(curveCreator);
+        (address _c, address _t,,) = curveFactory.createCurve(
+            Types.CreateCurveParams({
+                name: "Buy Curve",
+                symbol: "BUY",
+                decimals: 18,
+                feeRecipient: feeRecipient,
+                feeRecipientBps: protocolFeeBps,
+                curveParams: Types.CurveParams({
+                    collateralToken: address(usdc),
+                    segments: segs,
+                    maxThreshold: 1_000_000e6, // high threshold
+                    maxBuyPerTx: 0,            // 0 = no per-tx limit
+                    maxSellPerTx: 0
+                }),
+                vestingConfig: Types.VestingConfig({ cliffDuration: 0, vestingDuration: 0 })
+            })
+        );
+
+        buyCurve = Curve(_c);
+        buyToken = BondingToken(_t);
+    }
+
+    /// @dev Deploys a curve with a reachable graduation threshold.
+    function _deployGraduatableCurve()
+        internal
+        returns (Curve gradCurve, BondingToken gradToken)
+    {
+        Types.PiecewiseSegment[] memory segs = _createLinearParabolicSegments(50_000e18);
+
+        vm.prank(alice); // different caller to avoid salt collision
+        (address _c, address _t,,) = curveFactory.createCurve(
+            Types.CreateCurveParams({
+                name: "Grad Curve",
+                symbol: "GRAD",
+                decimals: 18,
+                feeRecipient: feeRecipient,
+                feeRecipientBps: protocolFeeBps,
+                curveParams: Types.CurveParams({
+                    collateralToken: address(usdc),
+                    segments: segs,
+                    maxThreshold: 10e6,  // 10 USDC — easily reachable
+                    maxBuyPerTx: 0,
+                    maxSellPerTx: 0
+                }),
+                vestingConfig: Types.VestingConfig({ cliffDuration: 0, vestingDuration: 0 })
+            })
+        );
+
+        gradCurve = Curve(_c);
+        gradToken = BondingToken(_t);
+    }
+
+    /// @dev Deploys a curve with no creator fee for fee comparison tests.
+    function _deployNoFeeCurve()
+        internal
+        returns (Curve noFeeCurve, BondingToken noFeeToken)
+    {
+        Types.PiecewiseSegment[] memory segs = _createLinearParabolicSegments(50_000e18);
+
+        vm.prank(bob); // different caller to avoid salt collision
+        (address _c, address _t,,) = curveFactory.createCurve(
+            Types.CreateCurveParams({
+                name: "No Fee Curve",
+                symbol: "NOFEE",
+                decimals: 18,
+                feeRecipient: address(0),
+                feeRecipientBps: 0,
+                curveParams: Types.CurveParams({
+                    collateralToken: address(usdc),
+                    segments: segs,
+                    maxThreshold: 1_000_000e6,
+                    maxBuyPerTx: 0,
+                    maxSellPerTx: 0
+                }),
+                vestingConfig: Types.VestingConfig({ cliffDuration: 0, vestingDuration: 0 })
+            })
+        );
+
+        noFeeCurve = Curve(_c);
+        noFeeToken = BondingToken(_t);
+    }
 }
