@@ -15,6 +15,6 @@ import { BondingToken } from "../src/contracts/BondingToken.sol";
 import { ICurveFactory } from "../src/interfaces/ICurveFactory.sol";
 import { GraduationManager } from "../src/contracts/GraduationManager.sol";
 
-contract BondingTokenTest {
+contract BondingTokenTest is BaseTest, Helpers{
 
 }
