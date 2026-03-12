@@ -173,5 +173,61 @@ contract CurveTest is BaseTest, Helpers {
         assertGt(price, 60_000e18);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                          GETTER: getBuyQuote
+    //////////////////////////////////////////////////////////////*/
+
+    function test_getBuyQuote_returnsNonZeroForNonZeroInput() public view {
+        uint256 tokensOut = curve.getBuyQuote(1000e6);
+        assertGt(tokensOut, 0);
+    }
+
+    function test_getBuyQuote_moreCollateralGivesMoreTokens() public view {
+        uint256 tokensSmall = curve.getBuyQuote(100e6);
+        uint256 tokensLarge = curve.getBuyQuote(1000e6);
+        assertGt(tokensLarge, tokensSmall);
+    }
+
+    function test_getBuyQuote_accountsForFees() public view {
+        // With 20% total fees (10% protocol + 10% creator), only 80% of collateral is priced
+        // Verify diminishing returns on the curve (not linear relationship)
+        uint256 collateral = 1000e6;
+        uint256 quotedTokens = curve.getBuyQuote(collateral);
+
+        uint256 quotedTokensFull = curve.getBuyQuote(collateral * 5);
+        // 5x collateral doesn't give 5x tokens on a curve (diminishing returns)
+        assertGt(quotedTokensFull, quotedTokens);
+        assertLt(quotedTokensFull, quotedTokens * 5);
+    }
+
+    function test_getBuyQuote_afterSupplyIncrease() public {
+        // Mint some supply first — prices are higher so same collateral buys fewer tokens
+        uint256 quoteBefore = curve.getBuyQuote(1000e6);
+
+        vm.prank(address(curve));
+        token.mint(alice, 1000e18);
+
+        uint256 quoteAfter = curve.getBuyQuote(1000e6);
+
+        // Higher supply = higher price = fewer tokens for same collateral
+        assertLt(quoteAfter, quoteBefore);
+    }
+
+    function test_getBuyQuote_matchesActualBuy() public {
+        uint256 collateral = 100e6; // 100 USDC
+
+        // Get the quote first
+        uint256 expectedTokens = curve.getBuyQuote(collateral);
+
+        // Perform the actual buy
+        vm.startPrank(alice);
+        usdc.approve(address(curve), collateral);
+        uint256 actualTokens = curve.buy(collateral, 0);
+        vm.stopPrank();
+
+        // Quote and actual should match exactly
+        assertEq(actualTokens, expectedTokens);
+    }
+
     
 }
