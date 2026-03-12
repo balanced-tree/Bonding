@@ -24,7 +24,7 @@ contract CurveTest is BaseTest, Helpers {
     Vesting public vesting;
     BondingToken public token;
     GraduationManager public graduationManager;
-    
+
     function setUp() public override {
         super.setUp();
 
@@ -32,24 +32,23 @@ contract CurveTest is BaseTest, Helpers {
 
         Types.PiecewiseSegment[] memory segs = _createLinearParabolicSegments(50_000e18);
 
-        (address _curve, address _token, address _vesting, address _gm) =
-            curveFactory.createCurve(
-                Types.CreateCurveParams({
-                    name: "Bonding Curve",
-                    symbol: "BOND",
-                    decimals: 18,
-                    feeRecipient: feeRecipient,
-                    feeRecipientBps: protocolFeeBps,
-                    curveParams: Types.CurveParams({
-                        collateralToken: address(usdc),
-                        segments: segs,
-                        maxThreshold: 1e18,
-                        maxBuyPerTx: 10_000,
-                        maxSellPerTx: 10_000
-                    }),
-                    vestingConfig: Types.VestingConfig({ cliffDuration: 0, vestingDuration: 0 })
-                })
-            );
+        (address _curve, address _token, address _vesting, address _gm) = curveFactory.createCurve(
+            Types.CreateCurveParams({
+                name: "Bonding Curve",
+                symbol: "BOND",
+                decimals: 18,
+                feeRecipient: feeRecipient,
+                feeRecipientBps: protocolFeeBps,
+                curveParams: Types.CurveParams({
+                    collateralToken: address(usdc),
+                    segments: segs,
+                    maxThreshold: 1e18,
+                    maxBuyPerTx: 10_000,
+                    maxSellPerTx: 10_000
+                }),
+                vestingConfig: Types.VestingConfig({ cliffDuration: 0, vestingDuration: 0 })
+            })
+        );
 
         vm.stopPrank();
 
@@ -467,7 +466,7 @@ contract CurveTest is BaseTest, Helpers {
 
         // protocolFeeBps = 1000 (10%), feeRecipientBps = 1000 (10%)
         uint256 expectedProtocolFee = (collateral * protocolFeeBps) / 10_000; // 10 USDC
-        uint256 expectedCreatorFee = (collateral * protocolFeeBps) / 10_000;  // 10 USDC
+        uint256 expectedCreatorFee = (collateral * protocolFeeBps) / 10_000; // 10 USDC
         uint256 expectedNetCollateral = collateral - expectedProtocolFee - expectedCreatorFee; // 80 USDC
 
         uint256 treasuryBefore = usdc.balanceOf(protocolTreasury);
@@ -494,7 +493,7 @@ contract CurveTest is BaseTest, Helpers {
 
         uint256 collateral = 100e6;
         uint256 expectedProtocolFee = (collateral * protocolFeeBps) / 10_000; // 10 USDC
-        uint256 expectedNetCollateral = collateral - expectedProtocolFee;     // 90 USDC
+        uint256 expectedNetCollateral = collateral - expectedProtocolFee; // 90 USDC
 
         uint256 treasuryBefore = usdc.balanceOf(protocolTreasury);
         uint256 feeRecipientBefore = usdc.balanceOf(feeRecipient);
@@ -718,10 +717,7 @@ contract CurveTest is BaseTest, Helpers {
 
     /// @dev Deploys a curve with maxBuyPerTx=0 (no limit) for buy tests.
     ///      Uses a large maxThreshold so graduation doesn't auto-trigger.
-    function _deployBuyCurve()
-        internal
-        returns (Curve buyCurve, BondingToken buyToken)
-    {
+    function _deployBuyCurve() internal returns (Curve buyCurve, BondingToken buyToken) {
         Types.PiecewiseSegment[] memory segs = _createLinearParabolicSegments(50_000e18);
 
         vm.prank(curveCreator);
@@ -736,7 +732,7 @@ contract CurveTest is BaseTest, Helpers {
                     collateralToken: address(usdc),
                     segments: segs,
                     maxThreshold: 1_000_000e6, // high threshold
-                    maxBuyPerTx: 0,            // 0 = no per-tx limit
+                    maxBuyPerTx: 0, // 0 = no per-tx limit
                     maxSellPerTx: 0
                 }),
                 vestingConfig: Types.VestingConfig({ cliffDuration: 0, vestingDuration: 0 })
@@ -748,10 +744,7 @@ contract CurveTest is BaseTest, Helpers {
     }
 
     /// @dev Deploys a curve with a reachable graduation threshold.
-    function _deployGraduatableCurve()
-        internal
-        returns (Curve gradCurve, BondingToken gradToken)
-    {
+    function _deployGraduatableCurve() internal returns (Curve gradCurve, BondingToken gradToken) {
         Types.PiecewiseSegment[] memory segs = _createLinearParabolicSegments(50_000e18);
 
         vm.prank(alice); // different caller to avoid salt collision
@@ -765,7 +758,7 @@ contract CurveTest is BaseTest, Helpers {
                 curveParams: Types.CurveParams({
                     collateralToken: address(usdc),
                     segments: segs,
-                    maxThreshold: 10e6,  // 10 USDC — easily reachable
+                    maxThreshold: 10e6, // 10 USDC — easily reachable
                     maxBuyPerTx: 0,
                     maxSellPerTx: 0
                 }),
@@ -778,10 +771,7 @@ contract CurveTest is BaseTest, Helpers {
     }
 
     /// @dev Deploys a curve with no creator fee for fee comparison tests.
-    function _deployNoFeeCurve()
-        internal
-        returns (Curve noFeeCurve, BondingToken noFeeToken)
-    {
+    function _deployNoFeeCurve() internal returns (Curve noFeeCurve, BondingToken noFeeToken) {
         Types.PiecewiseSegment[] memory segs = _createLinearParabolicSegments(50_000e18);
 
         vm.prank(bob); // different caller to avoid salt collision
