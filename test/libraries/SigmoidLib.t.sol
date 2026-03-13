@@ -8,6 +8,9 @@ import "../../src/Types.sol" as Types;
 import { BaseTest } from "../BaseTest.t.sol";
 import { Helpers } from "../utils/Helpers.sol";
 
+// PRBMath
+import { SD59x18, sd } from "@prb-math/SD59x18.sol";
+
 // Libraries
 import { SigmoidLib } from "../../src/libraries/SigmoidLib.sol";
 
