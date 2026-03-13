@@ -5,7 +5,7 @@ pragma solidity 0.8.30;
 import "../src/Types.sol" as Types;
 
 // Testing
-import { Helpers } from "./Helpers.sol";
+import { Helpers } from "./utils/Helpers.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 
 // Contracts
