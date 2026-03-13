@@ -15,8 +15,7 @@ import { Vesting } from "../src/contracts/Vesting.sol";
 import { BondingToken } from "../src/contracts/BondingToken.sol";
 import { GraduationManager } from "../src/contracts/GraduationManager.sol";
 
-// OpenZeppelin
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 
 contract CurveTest is BaseTest, Helpers {
     Curve public curve;
@@ -709,6 +708,52 @@ contract CurveTest is BaseTest, Helpers {
         // Curve holds exactly the net collateral
         assertEq(usdc.balanceOf(address(buyCurve)), expectedNet);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                        TOKEN INTEGRATION
+    //////////////////////////////////////////////////////////////*/
+
+    function test_token_minterIsCurve() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+        assertEq(buyToken.minter(), address(buyCurve));
+    }
+
+    function test_token_cannotMintDirectly() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        // Only the curve (minter) can mint — alice cannot
+        vm.prank(alice);
+        vm.expectRevert(BondingToken.ONLY_MINTER.selector);
+        buyToken.mint(alice, 1000e18);
+
+        // Confirm curve can mint (via buy)
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        assertGt(buyToken.totalSupply(), 0);
+    }
+
+    function test_token_cannotBurnDirectly() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        // Buy tokens first
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        uint256 balance = buyToken.balanceOf(alice);
+        assertGt(balance, 0);
+
+        // Alice cannot burn her own tokens directly
+        vm.prank(alice);
+        vm.expectRevert(BondingToken.ONLY_MINTER.selector);
+        buyToken.burn(alice, balance);
+    }
+
+    
 
     /*//////////////////////////////////////////////////////////////
                       HELPERS: CURVE DEPLOYMENT
