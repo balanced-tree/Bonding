@@ -1004,7 +1004,7 @@ contract CurveTest is BaseTest, Helpers {
     //////////////////////////////////////////////////////////////*/
 
     function test_sell_multipleSells_priceDecreases() public {
-        (Curve buyCurve,) = _deployBuyCurve();
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
 
         // Buy a large amount first
         vm.startPrank(alice);
@@ -1012,7 +1012,10 @@ contract CurveTest is BaseTest, Helpers {
         buyCurve.buy(500e6, 0);
         vm.stopPrank();
 
-        uint256 sellChunk = 1000e18;
+        // Sell in chunks of 1/4 of alice's balance
+        uint256 sellChunk = buyToken.balanceOf(alice) / 4;
+        assertGt(sellChunk, 0);
+
         uint256 priceBeforeSell = buyCurve.getPrice();
 
         vm.prank(alice);
