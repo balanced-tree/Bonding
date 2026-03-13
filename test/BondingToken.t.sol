@@ -157,5 +157,55 @@ contract BondingTokenTest is BaseTest {
         token.burn(alice, 101e18);
     }
 
-    
+    /*//////////////////////////////////////////////////////////////
+                          ERC20 TRANSFERS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_transfer_success() public {
+        vm.prank(minter);
+        token.mint(alice, 1000e18);
+
+        vm.prank(alice);
+        token.transfer(bob, 300e18);
+
+        assertEq(token.balanceOf(alice), 700e18);
+        assertEq(token.balanceOf(bob), 300e18);
+    }
+
+    function test_approve_and_transferFrom() public {
+        vm.prank(minter);
+        token.mint(alice, 1000e18);
+
+        vm.prank(alice);
+        token.approve(bob, 500e18);
+
+        assertEq(token.allowance(alice, bob), 500e18);
+
+        vm.prank(bob);
+        token.transferFrom(alice, bob, 500e18);
+
+        assertEq(token.balanceOf(alice), 500e18);
+        assertEq(token.balanceOf(bob), 500e18);
+    }
+
+    function test_transfer_revert_insufficientBalance() public {
+        vm.prank(minter);
+        token.mint(alice, 100e18);
+
+        vm.prank(alice);
+        vm.expectRevert();
+        token.transfer(bob, 101e18);
+    }
+
+    function test_transferFrom_revert_insufficientAllowance() public {
+        vm.prank(minter);
+        token.mint(alice, 1000e18);
+
+        vm.prank(alice);
+        token.approve(bob, 100e18);
+
+        vm.prank(bob);
+        vm.expectRevert();
+        token.transferFrom(alice, bob, 101e18);
+    }
 }
