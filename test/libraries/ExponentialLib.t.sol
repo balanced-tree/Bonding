@@ -8,11 +8,11 @@ import "../../src/Types.sol" as Types;
 import { BaseTest } from "../BaseTest.t.sol";
 import { Helpers } from "../utils/Helpers.sol";
 
-// Libraries
-import { ExponentialLib } from "../../src/libraries/ExponentialLib.sol";
-
 // PRBMath
 import { SD59x18, sd } from "@prb-math/SD59x18.sol";
+
+// Libraries
+import { ExponentialLib } from "../../src/libraries/ExponentialLib.sol";
 
 contract ExponentialLibTest is BaseTest, Helpers {
     // Default params: p(s) = 1·e^(1·s) + 0
