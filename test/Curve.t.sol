@@ -5,8 +5,8 @@ pragma solidity 0.8.30;
 import "../src/Types.sol" as Types;
 
 // Testing
-import { Helpers } from "./utils/Helpers.sol";
 import { BaseTest } from "./BaseTest.t.sol";
+import { Helpers } from "./utils/Helpers.sol";
 
 // Contracts
 import { ICurve } from "../src/interfaces/ICurve.sol";
