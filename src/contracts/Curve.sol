@@ -117,7 +117,7 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
 
         // Calculate tokens to mint from net collateral
         uint256 currentSupply = BondingToken(token).totalSupply();
-        tokensOut = PriceLib.calculateBuyTokens(_getSegments(), currentSupply, netCollateral);
+        tokensOut = PriceLib.calculateBuyTokens(segments, currentSupply, netCollateral);
 
         // Check slippage and per-tx limits
         if (tokensOut < minTokensOut) revert SLIPPAGE_EXCEEDED();
@@ -151,7 +151,7 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
 
         // Calculate collateral to return
         uint256 currentSupply = BondingToken(token).totalSupply();
-        uint256 grossCollateral = PriceLib.calculateSellCollateral(_getSegments(), currentSupply, tokenAmount);
+        uint256 grossCollateral = PriceLib.calculateSellCollateral(segments, currentSupply, tokenAmount);
 
         // Deduct fees
         (uint256 protocolFee, uint256 creatorFee) = _calculateFees(grossCollateral);
@@ -199,7 +199,7 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
     /// @inheritdoc ICurve
     function getPrice() external view returns (uint256) {
         uint256 currentSupply = BondingToken(token).totalSupply();
-        return PriceLib.getSpotPrice(_getSegments(), currentSupply);
+        return PriceLib.getSpotPrice(segments, currentSupply);
     }
 
     /// @inheritdoc ICurve
@@ -217,13 +217,13 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
         (uint256 protocolFee, uint256 creatorFee) = _calculateFees(collateralAmount);
         uint256 netCollateral = collateralAmount - protocolFee - creatorFee;
         uint256 currentSupply = BondingToken(token).totalSupply();
-        tokensOut = PriceLib.calculateBuyTokens(_getSegments(), currentSupply, netCollateral);
+        tokensOut = PriceLib.calculateBuyTokens(segments, currentSupply, netCollateral);
     }
 
     /// @inheritdoc ICurve
     function getSellQuote(uint256 tokenAmount) external view returns (uint256 collateralOut) {
         uint256 currentSupply = BondingToken(token).totalSupply();
-        uint256 grossCollateral = PriceLib.calculateSellCollateral(_getSegments(), currentSupply, tokenAmount);
+        uint256 grossCollateral = PriceLib.calculateSellCollateral(segments, currentSupply, tokenAmount);
         (uint256 protocolFee, uint256 creatorFee) = _calculateFees(grossCollateral);
         collateralOut = grossCollateral - protocolFee - creatorFee;
     }
@@ -258,10 +258,5 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
         if (feeRecipient != address(0)) {
             creatorFee = (amount * feeRecipientBps) / BPS_PRECISION;
         }
-    }
-
-    /// @dev Copies storage segments into memory for PriceLib consumption
-    function _getSegments() internal view returns (PiecewiseSegment[] memory) {
-        return segments;
     }
 }
