@@ -1031,7 +1031,57 @@ contract CurveTest is BaseTest, Helpers {
         assertGt(collateral1, collateral2);
     }
 
-    
+    /*//////////////////////////////////////////////////////////////
+                  BUY + SELL: ROUND-TRIP
+    //////////////////////////////////////////////////////////////*/
+
+    function test_buyThenSell_collateralLoss() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        uint256 collateral = 100e6;
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+
+        // Buy
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), collateral);
+        uint256 tokensBought = buyCurve.buy(collateral, 0);
+
+        // Sell everything back
+        uint256 collateralBack = buyCurve.sell(tokensBought, 0);
+        vm.stopPrank();
+
+        // Alice should get back LESS than she put in (fees on both legs)
+        uint256 aliceUsdcAfter = usdc.balanceOf(alice);
+        assertLt(aliceUsdcAfter, aliceUsdcBefore);
+
+        // The collateral returned should be positive but less than original
+        assertGt(collateralBack, 0);
+        assertLt(collateralBack, collateral);
+
+        // Token balance and supply should be 0
+        assertEq(buyToken.balanceOf(alice), 0);
+        assertEq(buyToken.totalSupply(), 0);
+    }
+
+    function test_buyThenSell_curveCollateralDrains() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        // Buy
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        uint256 tokensBought = buyCurve.buy(100e6, 0);
+
+        uint256 curveBalanceBefore = usdc.balanceOf(address(buyCurve));
+        assertGt(curveBalanceBefore, 0);
+
+        // Sell everything
+        buyCurve.sell(tokensBought, 0);
+        vm.stopPrank();
+
+        // Curve balance should decrease (sell fees go to treasury/feeRecipient, not back to curve)
+        uint256 curveBalanceAfter = usdc.balanceOf(address(buyCurve));
+        assertLt(curveBalanceAfter, curveBalanceBefore);
+    }
 
     /*//////////////////////////////////////////////////////////////
                       HELPERS: CURVE DEPLOYMENT
