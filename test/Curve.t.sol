@@ -999,6 +999,38 @@ contract CurveTest is BaseTest, Helpers {
         buyCurve.sell(sellAmount, 0);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                  SELL: SUCCESS — MULTIPLE SELLS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_sell_multipleSells_priceDecreases() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        // Buy a large amount first
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 500e6);
+        buyCurve.buy(500e6, 0);
+        vm.stopPrank();
+
+        uint256 sellChunk = 1000e18;
+        uint256 priceBeforeSell = buyCurve.getPrice();
+
+        vm.prank(alice);
+        uint256 collateral1 = buyCurve.sell(sellChunk, 0);
+        uint256 priceAfterFirst = buyCurve.getPrice();
+
+        vm.prank(alice);
+        uint256 collateral2 = buyCurve.sell(sellChunk, 0);
+        uint256 priceAfterSecond = buyCurve.getPrice();
+
+        // Price decreases after each sell
+        assertLt(priceAfterFirst, priceBeforeSell);
+        assertLt(priceAfterSecond, priceAfterFirst);
+
+        // First sell gets more collateral (selling from higher supply)
+        assertGt(collateral1, collateral2);
+    }
+
     
 
     /*//////////////////////////////////////////////////////////////
