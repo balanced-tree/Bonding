@@ -8,11 +8,11 @@ import "../../src/Types.sol" as Types;
 import { BaseTest } from "../BaseTest.t.sol";
 import { Helpers } from "../utils/Helpers.sol";
 
-// Libraries
-import { ParabolicLib } from "../../src/libraries/ParabolicLib.sol";
-
 // PRBMath
 import { SD59x18, sd } from "@prb-math/SD59x18.sol";
+
+// Libraries
+import { ParabolicLib } from "../../src/libraries/ParabolicLib.sol";
 
 contract ParabolicLibTest is BaseTest, Helpers {
     // Default params: p(s) = 1·s² + 0·s + 0
