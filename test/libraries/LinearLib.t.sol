@@ -15,19 +15,19 @@ import { LinearLib } from "../../src/libraries/LinearLib.sol";
 import { SD59x18, sd } from "@prb-math/SD59x18.sol";
 
 contract LinearLibTest is BaseTest, Helpers {
-    // ── Default params: p(s) = 1·s + 0 ──────────────────────────
+    // Default params: p(s) = 1·s + 0
     bytes internal defaultParams;
 
-    // ── Custom params: p(s) = 2·s + 3 ───────────────────────────
+    // Custom params: p(s) = 2·s + 3
     bytes internal slopeInterceptParams;
 
-    // ── Flat price: p(s) = 0·s + 5  (constant price = 5) ────────
+    // Flat price: p(s) = 0·s + 5  (constant price = 5)
     bytes internal flatParams;
 
-    // ── Negative slope: p(s) = -0.5·s + 100 (decreasing price) ──
+    // Negative slope: p(s) = -0.5·s + 100 (decreasing price)
     bytes internal negSlopeParams;
 
-    // ── Single-segment array for PriceLib-level checks ───────────
+    // Single-segment array for PriceLib-level checks
     Types.PiecewiseSegment[] internal defaultSegments;
 
     function setUp() public override {
