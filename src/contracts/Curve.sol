@@ -81,8 +81,9 @@ contract Curve is Initializable, ICurve, ReentrancyGuardTransient {
         if (_vesting != address(0)) vesting = _vesting;
         graduationManager = _graduationManager;
         treasury = _treasury;
-        protocolFeeBps = _protocolFeeBps;
         collateralToken = params.curveParams.collateralToken;
+
+        protocolFeeBps = _protocolFeeBps;
         maxBuyPerTx = params.curveParams.maxBuyPerTx;
         maxSellPerTx = params.curveParams.maxSellPerTx;
         maxThreshold = params.curveParams.maxThreshold;
