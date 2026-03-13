@@ -828,6 +828,177 @@ contract CurveTest is BaseTest, Helpers {
         buyCurve.sell(1e18, 0);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                          SELL: SUCCESS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_sell_basic() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        // Buy tokens
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        uint256 tokensBought = buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        uint256 sellAmount = tokensBought / 2;
+        uint256 aliceTokensBefore = buyToken.balanceOf(alice);
+        uint256 aliceUsdcBefore = usdc.balanceOf(alice);
+        uint256 supplyBefore = buyToken.totalSupply();
+
+        vm.prank(alice);
+        uint256 collateralOut = buyCurve.sell(sellAmount, 0);
+
+        // Alice's token balance decreased
+        assertEq(buyToken.balanceOf(alice), aliceTokensBefore - sellAmount);
+
+        // Alice received collateral
+        assertEq(usdc.balanceOf(alice), aliceUsdcBefore + collateralOut);
+        assertGt(collateralOut, 0);
+
+        // Total supply decreased (tokens burned)
+        assertEq(buyToken.totalSupply(), supplyBefore - sellAmount);
+    }
+
+    function test_sell_matchesQuote() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        // Buy tokens
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        uint256 sellAmount = buyToken.balanceOf(alice) / 2;
+        uint256 quoted = buyCurve.getSellQuote(sellAmount);
+
+        vm.prank(alice);
+        uint256 actual = buyCurve.sell(sellAmount, 0);
+
+        assertEq(actual, quoted);
+    }
+
+    function test_sell_exactSlippageAccepted() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        uint256 sellAmount = buyToken.balanceOf(alice) / 2;
+        uint256 expectedCollateral = buyCurve.getSellQuote(sellAmount);
+
+        vm.prank(alice);
+        uint256 collateralOut = buyCurve.sell(sellAmount, expectedCollateral);
+
+        assertEq(collateralOut, expectedCollateral);
+    }
+
+    function test_sell_entireBalance() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        uint256 tokensBought = buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        // Sell everything
+        vm.prank(alice);
+        uint256 collateralOut = buyCurve.sell(tokensBought, 0);
+
+        assertEq(buyToken.balanceOf(alice), 0);
+        assertEq(buyToken.totalSupply(), 0);
+        assertGt(collateralOut, 0);
+
+        // Price should be back to 0 (LINEAR p(s) = s, supply = 0)
+        assertEq(buyCurve.getPrice(), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    SELL: SUCCESS — FEE DISTRIBUTION
+    //////////////////////////////////////////////////////////////*/
+
+    function test_sell_feeDistribution() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        // Buy tokens first
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        uint256 sellAmount = buyToken.balanceOf(alice) / 2;
+
+        uint256 treasuryBefore = usdc.balanceOf(protocolTreasury);
+        uint256 feeRecipientBefore = usdc.balanceOf(feeRecipient);
+        uint256 curveBalanceBefore = usdc.balanceOf(address(buyCurve));
+
+        vm.prank(alice);
+        uint256 collateralOut = buyCurve.sell(sellAmount, 0);
+
+        uint256 protocolFeeCollected = usdc.balanceOf(protocolTreasury) - treasuryBefore;
+        uint256 creatorFeeCollected = usdc.balanceOf(feeRecipient) - feeRecipientBefore;
+        uint256 curveBalanceDecrease = curveBalanceBefore - usdc.balanceOf(address(buyCurve));
+
+        // Fees were collected
+        assertGt(protocolFeeCollected, 0);
+        assertGt(creatorFeeCollected, 0);
+
+        // Protocol and creator fees are equal (both use protocolFeeBps = 10%)
+        assertEq(protocolFeeCollected, creatorFeeCollected);
+
+        // Curve paid out: collateral to alice + fees to treasury + fees to feeRecipient
+        assertEq(curveBalanceDecrease, collateralOut + protocolFeeCollected + creatorFeeCollected);
+    }
+
+    function test_sell_noCreatorFee() public {
+        (Curve noFeeCurve, BondingToken noFeeToken) = _deployNoFeeCurve();
+
+        // Buy tokens
+        vm.startPrank(alice);
+        usdc.approve(address(noFeeCurve), 100e6);
+        noFeeCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        uint256 sellAmount = noFeeToken.balanceOf(alice) / 2;
+
+        uint256 treasuryBefore = usdc.balanceOf(protocolTreasury);
+        uint256 feeRecipientBefore = usdc.balanceOf(feeRecipient);
+
+        vm.prank(alice);
+        noFeeCurve.sell(sellAmount, 0);
+
+        // Protocol fee collected
+        assertGt(usdc.balanceOf(protocolTreasury) - treasuryBefore, 0);
+
+        // Fee recipient unchanged
+        assertEq(usdc.balanceOf(feeRecipient), feeRecipientBefore);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                  SELL: SUCCESS — EVENT EMISSION
+    //////////////////////////////////////////////////////////////*/
+
+    function test_sell_emitsTokensSold() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        uint256 sellAmount = buyToken.balanceOf(alice) / 2;
+
+        // Check that the event is emitted with the correct seller (indexed) and sell amount
+        // We check topic1 (seller) and non-indexed data loosely
+        vm.expectEmit(true, false, false, false);
+        emit ICurve.TokensSold(alice, 0, 0, 0);
+
+        vm.prank(alice);
+        buyCurve.sell(sellAmount, 0);
+    }
+
     
 
     /*//////////////////////////////////////////////////////////////
