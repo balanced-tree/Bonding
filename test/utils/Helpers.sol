@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 // Types
-import "../src/Types.sol" as Types;
+import "../../src/Types.sol" as Types;
 
 abstract contract Helpers {
 
