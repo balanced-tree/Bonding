@@ -753,6 +753,81 @@ contract CurveTest is BaseTest, Helpers {
         buyToken.burn(alice, balance);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            SELL: REVERTS
+    //////////////////////////////////////////////////////////////*/
+
+    function test_sell_revert_zeroAmount() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        vm.prank(alice);
+        vm.expectRevert(ICurve.INVALID_AMOUNT.selector);
+        buyCurve.sell(0, 0);
+    }
+
+    function test_sell_revert_alreadyGraduated() public {
+        (Curve gradCurve,) = _deployGraduatableCurve();
+
+        // Buy to trigger graduation
+        vm.startPrank(alice);
+        usdc.approve(address(gradCurve), 15e6);
+        gradCurve.buy(15e6, 0);
+        vm.stopPrank();
+
+        assertTrue(gradCurve.graduated());
+
+        // Selling after graduation should revert
+        vm.prank(alice);
+        vm.expectRevert(ICurve.ALREADY_GRADUATED.selector);
+        gradCurve.sell(1e18, 0);
+    }
+
+    function test_sell_revert_exceedsMaxPerTx() public {
+        // Default curve has maxSellPerTx = 10_000
+        // Mint tokens to alice so she has something to sell
+        vm.prank(address(curve));
+        token.mint(alice, 20_000);
+
+        // Fund curve with collateral so it can pay out
+        deal(address(usdc), address(curve), 1_000_000e6);
+
+        vm.prank(alice);
+        vm.expectRevert(ICurve.EXCEEDS_MAX_PER_TX.selector);
+        curve.sell(10_001, 0);
+    }
+
+    function test_sell_revert_slippageExceeded() public {
+        (Curve buyCurve, BondingToken buyToken) = _deployBuyCurve();
+
+        // Buy tokens first
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        uint256 sellAmount = buyToken.balanceOf(alice) / 2;
+        uint256 expectedCollateral = buyCurve.getSellQuote(sellAmount);
+
+        vm.prank(alice);
+        vm.expectRevert(ICurve.SLIPPAGE_EXCEEDED.selector);
+        buyCurve.sell(sellAmount, expectedCollateral + 1);
+    }
+
+    function test_sell_revert_insufficientTokenBalance() public {
+        (Curve buyCurve,) = _deployBuyCurve();
+
+        // Buy a small amount
+        vm.startPrank(alice);
+        usdc.approve(address(buyCurve), 100e6);
+        buyCurve.buy(100e6, 0);
+        vm.stopPrank();
+
+        // Bob has no tokens — sell should revert (burn fails)
+        vm.prank(bob);
+        vm.expectRevert();
+        buyCurve.sell(1e18, 0);
+    }
+
     
 
     /*//////////////////////////////////////////////////////////////
