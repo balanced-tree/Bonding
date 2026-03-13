@@ -8,11 +8,11 @@ import "../../src/Types.sol" as Types;
 import { BaseTest } from "../BaseTest.t.sol";
 import { Helpers } from "../utils/Helpers.sol";
 
-// Libraries
-import { SinLib } from "../../src/libraries/SinLib.sol";
-
 // PRBMath
 import { SD59x18, sd } from "@prb-math/SD59x18.sol";
+
+// Libraries
+import { SinLib } from "../../src/libraries/SinLib.sol";
 
 contract SinLibTest is BaseTest, Helpers {
     // Default params: p(s) = 1·sin(1·s + 0) + 2
