@@ -9,7 +9,7 @@ import { Curve } from "../src/contracts/Curve.sol";
 import { BondingToken } from "../src/contracts/BondingToken.sol";
 import { ICurveFactory } from "../src/interfaces/ICurveFactory.sol";
 
-import { Helpers } from "./Helpers.sol";
+import { Helpers } from "./utils/Helpers.sol";
 import { BaseTest } from "./BaseTest.t.sol";
 
 contract CurveFactoryTest is BaseTest, Helpers {
