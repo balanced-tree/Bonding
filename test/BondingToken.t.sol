@@ -113,5 +113,49 @@ contract BondingTokenTest is BaseTest {
         token.mint(alice, 1000e18);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                              BURN
+    //////////////////////////////////////////////////////////////*/
+
+    function test_burn_success() public {
+        vm.prank(minter);
+        token.mint(alice, 1000e18);
+
+        vm.prank(minter);
+        token.burn(alice, 400e18);
+
+        assertEq(token.balanceOf(alice), 600e18);
+        assertEq(token.totalSupply(), 600e18);
+    }
+
+    function test_burn_entireBalance() public {
+        vm.prank(minter);
+        token.mint(alice, 500e18);
+
+        vm.prank(minter);
+        token.burn(alice, 500e18);
+
+        assertEq(token.balanceOf(alice), 0);
+        assertEq(token.totalSupply(), 0);
+    }
+
+    function test_burn_revert_onlyMinter() public {
+        vm.prank(minter);
+        token.mint(alice, 1000e18);
+
+        vm.prank(alice);
+        vm.expectRevert(BondingToken.ONLY_MINTER.selector);
+        token.burn(alice, 500e18);
+    }
+
+    function test_burn_revert_exceedsBalance() public {
+        vm.prank(minter);
+        token.mint(alice, 100e18);
+
+        vm.prank(minter);
+        vm.expectRevert();
+        token.burn(alice, 101e18);
+    }
+
     
 }
