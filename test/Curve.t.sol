@@ -13,7 +13,6 @@ import { ICurve } from "../src/interfaces/ICurve.sol";
 import { Curve } from "../src/contracts/Curve.sol";
 import { Vesting } from "../src/contracts/Vesting.sol";
 import { BondingToken } from "../src/contracts/BondingToken.sol";
-import { ICurveFactory } from "../src/interfaces/ICurveFactory.sol";
 import { GraduationManager } from "../src/contracts/GraduationManager.sol";
 
 // OpenZeppelin
