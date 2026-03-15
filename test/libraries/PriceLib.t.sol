@@ -8,11 +8,11 @@ import "../../src/Types.sol" as Types;
 import { BaseTest } from "../BaseTest.t.sol";
 import { Helpers } from "../utils/Helpers.sol";
 
-// Libraries
-import { PriceLib } from "../../src/libraries/PriceLib.sol";
-
 // PRBMath
 import { SD59x18, sd } from "@prb-math/SD59x18.sol";
+
+// Libraries
+import { PriceLib } from "../../src/libraries/PriceLib.sol";
 
 contract PriceLibTest is BaseTest, Helpers {
     /*//////////////////////////////////////////////////////////////
