@@ -424,4 +424,75 @@ contract ParabolicLibTest is BaseTest, Helpers {
 
         assertEq(area.unwrap(), fTo - fFrom);
     }
+
+    function testFuzz_spotPrice_full_matchesFormula(uint256 s) public view {
+        // p(s) = 2s² + 3s + 5 — verify against manual SD59x18 computation
+        s = bound(s, 0, 1000e18);
+        SD59x18 price = ParabolicLib.spotPrice(fullParams, sd(int256(s)));
+        int256 s2 = int256(s) * int256(s) / 1e18; // s²
+        int256 expected = 2 * s2 + 3 * int256(s) + 5e18; // 2s² + 3s + 5 (in SD59x18)
+        assertEq(price.unwrap(), expected);
+    }
+
+    function testFuzz_spotPrice_smallCoeff_matchesFormula(uint256 s) public view {
+        // p(s) = 0.001·s² + 1
+        s = bound(s, 0, 1000e18);
+        SD59x18 price = ParabolicLib.spotPrice(smallCoeffParams, sd(int256(s)));
+        int256 s2 = int256(s) * int256(s) / 1e18;
+        int256 expected = int256(0.001e18) * s2 / 1e18 + 1e18;
+        assertEq(price.unwrap(), expected);
+    }
+
+    function testFuzz_spotPrice_monotonicity(uint256 s1, uint256 s2) public view {
+        // p(s) = s² is non-decreasing for s ≥ 0 → s1 ≤ s2 implies p(s1) ≤ p(s2)
+        s1 = bound(s1, 0, 500e18);
+        s2 = bound(s2, s1, 1000e18);
+
+        SD59x18 p1 = ParabolicLib.spotPrice(defaultParams, sd(int256(s1)));
+        SD59x18 p2 = ParabolicLib.spotPrice(defaultParams, sd(int256(s2)));
+
+        assertTrue(p2 >= p1);
+    }
+
+    function testFuzz_integrate_nonNegative(uint256 from, uint256 to) public view {
+        // For non-negative price curve p(s) = s², ∫[from, to] ≥ 0 when to ≥ from
+        from = bound(from, 0, 500e18);
+        to = bound(to, from, 1000e18);
+
+        SD59x18 area = ParabolicLib.integrate(defaultParams, sd(int256(from)), sd(int256(to)));
+        assertTrue(area.unwrap() >= 0);
+    }
+
+    function testFuzz_integrate_zeroWidth_returnsZero(uint256 s) public view {
+        // ∫[s, s] = 0 for any supply point
+        s = bound(s, 0, 1000e18);
+        assertEq(ParabolicLib.integrate(defaultParams, sd(int256(s)), sd(int256(s))).unwrap(), 0);
+        assertEq(ParabolicLib.integrate(fullParams, sd(int256(s)), sd(int256(s))).unwrap(), 0);
+    }
+
+    function testFuzz_spotIntegralConsistency(uint256 s) public view {
+        // Fundamental theorem: for tiny δ, ∫[s, s+δ] ≈ p(s)·δ
+        s = bound(s, 1e18, 999e18);
+        SD59x18 delta = sd(0.0001e18);
+
+        SD59x18 spot = ParabolicLib.spotPrice(fullParams, sd(int256(s)));
+        SD59x18 area = ParabolicLib.integrate(fullParams, sd(int256(s)), sd(int256(s)) + delta);
+        SD59x18 approx = spot * delta;
+
+        // 0.1% tolerance — the quadratic curvature over tiny δ is negligible
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
+    function testFuzz_integrate_additivity_full(uint256 a, uint256 b, uint256 c) public view {
+        // Additivity with full quadratic params: ∫[a,c] = ∫[a,b] + ∫[b,c]
+        a = bound(a, 0, 300e18);
+        b = bound(b, a, 600e18);
+        c = bound(c, b, 900e18);
+
+        SD59x18 whole = ParabolicLib.integrate(fullParams, sd(int256(a)), sd(int256(c)));
+        SD59x18 part1 = ParabolicLib.integrate(fullParams, sd(int256(a)), sd(int256(b)));
+        SD59x18 part2 = ParabolicLib.integrate(fullParams, sd(int256(b)), sd(int256(c)));
+
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
 }
