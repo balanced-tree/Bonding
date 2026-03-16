@@ -253,7 +253,8 @@ contract SigmoidLibTest is BaseTest, Helpers {
 
     function testFuzz_spotPrice_default_symmetry(uint256 d) public view {
         // p(s0 + d) + p(s0 - d) ≈ maxVal (for b=0)
-        d = bound(d, 0, 35e18); // keep both exp() args in domain
+        // d ≤ 5e18 so s0-d stays non-negative; also keeps exp() in domain
+        d = bound(d, 0, 5e18);
         SD59x18 pPlus = SigmoidLib.spotPrice(defaultParams, sd(int256(5e18 + d)));
         SD59x18 pMinus = SigmoidLib.spotPrice(defaultParams, sd(int256(5e18 - d)));
         assertApproxEqRel(uint256((pPlus + pMinus).unwrap()), 10e18, 0.001e18);
