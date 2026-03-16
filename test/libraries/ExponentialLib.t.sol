@@ -91,9 +91,9 @@ contract ExponentialLibTest is BaseTest, Helpers {
     }
 
     function test_spotPrice_default_atTen() public view {
-        // p(10) = e¹⁰ ≈ 22026.465794806718...
+        // p(10) = e¹⁰ ≈ 22026.4657948...
         SD59x18 price = ExponentialLib.spotPrice(defaultParams, sd(10e18));
-        assertApproxEqRel(uint256(price.unwrap()), 22_026_465794806716516, 0.01e18);
+        assertApproxEqRel(uint256(price.unwrap()), 22026_465794806716000000, 0.01e18);
     }
 
     // ── Offset: p(s) = e^s + 5 ───────────────────────────────
@@ -131,9 +131,9 @@ contract ExponentialLibTest is BaseTest, Helpers {
     }
 
     function test_spotPrice_slowGrowth_atThousand() public view {
-        // p(1000) = e^(0.01·1000) = e^10 ≈ 22026.466...
+        // p(1000) = e^(0.01·1000) = e^10 ≈ 22026.4657948...
         SD59x18 price = ExponentialLib.spotPrice(slowGrowthParams, sd(1000e18));
-        assertApproxEqRel(uint256(price.unwrap()), 22_026_465794806716516, 0.01e18);
+        assertApproxEqRel(uint256(price.unwrap()), 22026_465794806716000000, 0.01e18);
     }
 
     // ── Scaled: p(s) = 3·e^(0.5·s) + 2 ──────────────────────
