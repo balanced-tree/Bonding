@@ -304,5 +304,42 @@ contract LnLibTest is BaseTest, Helpers {
         assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
     }
 
-    
+    /*//////////////////////////////////////////////////////////////
+                      FUZZ: UNIVERSAL PROPERTIES
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_integrate_additivity(uint256 a, uint256 b, uint256 c) public view {
+        a = bound(a, 0, 300e18);
+        b = bound(b, a, 600e18);
+        c = bound(c, b, 900e18);
+
+        SD59x18 whole = LnLib.integrate(defaultParams, sd(int256(a)), sd(int256(c)));
+        SD59x18 part1 = LnLib.integrate(defaultParams, sd(int256(a)), sd(int256(b)));
+        SD59x18 part2 = LnLib.integrate(defaultParams, sd(int256(b)), sd(int256(c)));
+
+        // Allow 2 wei tolerance for accumulated rounding across two ln() calls
+        assertApproxEqAbs(whole.unwrap(), (part1 + part2).unwrap(), 2);
+    }
+
+    function testFuzz_integrate_monotonicity(uint256 start, uint256 end1, uint256 end2) public view {
+        // Minimum 1e18 (1 token) to stay above ln() precision floor
+        start = bound(start, 1e18, 300e18);
+        end1 = bound(end1, start, 600e18);
+        end2 = bound(end2, end1, 900e18);
+
+        SD59x18 area1 = LnLib.integrate(defaultParams, sd(int256(start)), sd(int256(end1)));
+        SD59x18 area2 = LnLib.integrate(defaultParams, sd(int256(start)), sd(int256(end2)));
+
+        assertTrue(area2 >= area1);
+    }
+
+    function testFuzz_integrate_nonNegative(uint256 from, uint256 to) public view {
+        // ln(s+1) >= 0 for s >= 0, so integral over any [from, to] where to >= from must be >= 0
+        // Minimum 1e18 to avoid sub-wei rounding in the antiderivative subtraction
+        from = bound(from, 1e18, 500e18);
+        to = bound(to, from, 1000e18);
+
+        SD59x18 area = LnLib.integrate(defaultParams, sd(int256(from)), sd(int256(to)));
+        assertTrue(area >= sd(0));
+    }
 }
