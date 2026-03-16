@@ -207,4 +207,221 @@ contract ParabolicLibTest is BaseTest, Helpers {
         int256 expected = 4e18 * int256(s) / 1e18 + 1e18;
         assertEq(price.unwrap(), expected);
     }
+
+    /*//////////////////////////////////////////////////////////////
+            INTEGRATE: ∫(a·s² + b·s + c)ds = a·s³/3 + b·s²/2 + c·s
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Default: F(s) = s³/3 ──────────────────────────────────
+
+    function test_integrate_default_zeroToTen() public view {
+        // ∫₀¹⁰ s² ds = 10³/3 = 1000/3 ≈ 333.333...
+        SD59x18 area = ParabolicLib.integrate(defaultParams, sd(0), sd(10e18));
+        // Division by 3 truncates — allow 1 wei tolerance
+        assertApproxEqAbs(uint256(area.unwrap()), 333_333333333333333333, 1);
+    }
+
+    function test_integrate_default_zeroToHundred() public view {
+        // ∫₀¹⁰⁰ s² ds = 100³/3 = 1000000/3 ≈ 333333.333...
+        SD59x18 area = ParabolicLib.integrate(defaultParams, sd(0), sd(100e18));
+        assertApproxEqAbs(uint256(area.unwrap()), 333_333_333333333333333333, 1);
+    }
+
+    function test_integrate_default_nonZeroStart() public view {
+        // ∫₁₀²⁰ s² ds = F(20) - F(10) = 8000/3 - 1000/3 = 7000/3 ≈ 2333.333...
+        SD59x18 area = ParabolicLib.integrate(defaultParams, sd(10e18), sd(20e18));
+        assertApproxEqAbs(uint256(area.unwrap()), 2_333_333333333333333333, 1);
+    }
+
+    function test_integrate_default_zeroToOne() public view {
+        // ∫₀¹ s² ds = 1/3 ≈ 0.333...
+        SD59x18 area = ParabolicLib.integrate(defaultParams, sd(0), sd(1e18));
+        assertApproxEqAbs(uint256(area.unwrap()), 333333333333333333, 1);
+    }
+
+    // ── Full quadratic: F(s) = 2s³/3 + 3s²/2 + 5s ───────────
+
+    function test_integrate_full_zeroToTen() public view {
+        // F(10) = 2·1000/3 + 3·100/2 + 5·10 = 666.666... + 150 + 50 = 866.666...
+        SD59x18 area = ParabolicLib.integrate(fullParams, sd(0), sd(10e18));
+        assertApproxEqAbs(uint256(area.unwrap()), 866_666666666666666666, 1);
+    }
+
+    function test_integrate_full_fiveToTen() public view {
+        // F(10) - F(5) = 866.666... - (2·125/3 + 3·25/2 + 25) = 866.666... - (83.333... + 37.5 + 25)
+        // = 866.666... - 145.833... = 720.833...
+        SD59x18 area = ParabolicLib.integrate(fullParams, sd(5e18), sd(10e18));
+        assertApproxEqAbs(uint256(area.unwrap()), 720_833333333333333333, 1);
+    }
+
+    function test_integrate_full_zeroToOne() public view {
+        // F(1) = 2/3 + 3/2 + 5 = 0.666... + 1.5 + 5 = 7.166...
+        SD59x18 area = ParabolicLib.integrate(fullParams, sd(0), sd(1e18));
+        assertApproxEqAbs(uint256(area.unwrap()), 7_166666666666666666, 1);
+    }
+
+    // ── Linear degenerate: F(s) = 2s² + s (exact, no /3 term) ─
+
+    function test_integrate_linearDegenerate_zeroToTen() public view {
+        // ∫₀¹⁰ (4s + 1) ds = [2s² + s]₀¹⁰ = 200 + 10 = 210
+        SD59x18 area = ParabolicLib.integrate(linearDegenerateParams, sd(0), sd(10e18));
+        assertEq(area.unwrap(), 210e18);
+    }
+
+    function test_integrate_linearDegenerate_tenToTwenty() public view {
+        // F(20) - F(10) = (800 + 20) - (200 + 10) = 820 - 210 = 610
+        SD59x18 area = ParabolicLib.integrate(linearDegenerateParams, sd(10e18), sd(20e18));
+        assertEq(area.unwrap(), 610e18);
+    }
+
+    function test_integrate_linearDegenerate_zeroToFifty() public view {
+        // F(50) = 2·2500 + 50 = 5050
+        SD59x18 area = ParabolicLib.integrate(linearDegenerateParams, sd(0), sd(50e18));
+        assertEq(area.unwrap(), 5050e18);
+    }
+
+    // ── Constant: F(s) = 7s (exact) ──────────────────────────
+
+    function test_integrate_constant_zeroToHundred() public view {
+        // ∫₀¹⁰⁰ 7 ds = 700
+        SD59x18 area = ParabolicLib.integrate(constantParams, sd(0), sd(100e18));
+        assertEq(area.unwrap(), 700e18);
+    }
+
+    function test_integrate_constant_tenToFifty() public view {
+        // ∫₁₀⁵⁰ 7 ds = 7 · 40 = 280
+        SD59x18 area = ParabolicLib.integrate(constantParams, sd(10e18), sd(50e18));
+        assertEq(area.unwrap(), 280e18);
+    }
+
+    // ── Small coefficient: F(s) = 0.001·s³/3 + s ─────────────
+
+    function test_integrate_smallCoeff_zeroToHundred() public view {
+        // F(100) = 0.001·1000000/3 + 100 = 333.333... + 100 = 433.333...
+        SD59x18 area = ParabolicLib.integrate(smallCoeffParams, sd(0), sd(100e18));
+        assertApproxEqAbs(uint256(area.unwrap()), 433_333333333333333333, 1);
+    }
+
+    function test_integrate_smallCoeff_zeroToThousand() public view {
+        // F(1000) = 0.001·1e9/3 + 1000 = 333333.333... + 1000 = 334333.333...
+        SD59x18 area = ParabolicLib.integrate(smallCoeffParams, sd(0), sd(1000e18));
+        assertApproxEqAbs(uint256(area.unwrap()), 334_333_333333333333333333, 1);
+    }
+
+    // ── Zero width ────────────────────────────────────────────
+
+    function test_integrate_zeroWidth_returnsZero() public view {
+        // ∫₁₀¹⁰ anything ds = 0
+        assertEq(ParabolicLib.integrate(defaultParams, sd(10e18), sd(10e18)).unwrap(), 0);
+        assertEq(ParabolicLib.integrate(fullParams, sd(50e18), sd(50e18)).unwrap(), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            ADDITIVITY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_integrate_additivity_default() public view {
+        // ∫₀³⁰ = ∫₀¹⁰ + ∫₁₀³⁰
+        SD59x18 whole = ParabolicLib.integrate(defaultParams, sd(0), sd(30e18));
+        SD59x18 part1 = ParabolicLib.integrate(defaultParams, sd(0), sd(10e18));
+        SD59x18 part2 = ParabolicLib.integrate(defaultParams, sd(10e18), sd(30e18));
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function test_integrate_additivity_full() public view {
+        // ∫₀²⁰ = ∫₀⁷ + ∫₇²⁰
+        SD59x18 whole = ParabolicLib.integrate(fullParams, sd(0), sd(20e18));
+        SD59x18 part1 = ParabolicLib.integrate(fullParams, sd(0), sd(7e18));
+        SD59x18 part2 = ParabolicLib.integrate(fullParams, sd(7e18), sd(20e18));
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function test_integrate_additivity_threeWaySplit() public view {
+        // ∫₀³⁰ = ∫₀¹⁰ + ∫₁₀²⁰ + ∫₂₀³⁰
+        SD59x18 whole = ParabolicLib.integrate(fullParams, sd(0), sd(30e18));
+        SD59x18 p1 = ParabolicLib.integrate(fullParams, sd(0), sd(10e18));
+        SD59x18 p2 = ParabolicLib.integrate(fullParams, sd(10e18), sd(20e18));
+        SD59x18 p3 = ParabolicLib.integrate(fullParams, sd(20e18), sd(30e18));
+        assertEq(whole.unwrap(), (p1 + p2 + p3).unwrap());
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                      SPOT-INTEGRAL CONSISTENCY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_spotIntegralConsistency_default() public view {
+        // For a tiny δ, integrate(s, s+δ) ≈ spotPrice(s) · δ
+        SD59x18 s = sd(50e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = ParabolicLib.spotPrice(defaultParams, s);
+        SD59x18 area = ParabolicLib.integrate(defaultParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
+    function test_spotIntegralConsistency_full() public view {
+        SD59x18 s = sd(25e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = ParabolicLib.spotPrice(fullParams, s);
+        SD59x18 area = ParabolicLib.integrate(fullParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    FUZZ: UNIVERSAL PROPERTIES
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_integrate_additivity(uint256 a, uint256 b, uint256 c) public view {
+        a = bound(a, 0, 300e18);
+        b = bound(b, a, 600e18);
+        c = bound(c, b, 900e18);
+
+        SD59x18 whole = ParabolicLib.integrate(defaultParams, sd(int256(a)), sd(int256(c)));
+        SD59x18 part1 = ParabolicLib.integrate(defaultParams, sd(int256(a)), sd(int256(b)));
+        SD59x18 part2 = ParabolicLib.integrate(defaultParams, sd(int256(b)), sd(int256(c)));
+
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function testFuzz_integrate_monotonicity(uint256 start, uint256 end1, uint256 end2) public view {
+        // Wider range → larger area (for non-negative prices)
+        start = bound(start, 0, 300e18);
+        end1 = bound(end1, start, 600e18);
+        end2 = bound(end2, end1, 900e18);
+
+        SD59x18 area1 = ParabolicLib.integrate(defaultParams, sd(int256(start)), sd(int256(end1)));
+        SD59x18 area2 = ParabolicLib.integrate(defaultParams, sd(int256(start)), sd(int256(end2)));
+
+        assertTrue(area2 >= area1);
+    }
+
+    function testFuzz_integrate_constant_isExact(uint256 from, uint256 to) public view {
+        // For constant price p(s) = 7, integral is exactly 7·(to - from)
+        from = bound(from, 0, 500e18);
+        to = bound(to, from, 1000e18);
+
+        SD59x18 area = ParabolicLib.integrate(constantParams, sd(int256(from)), sd(int256(to)));
+        int256 expected = 7e18 * (int256(to) - int256(from)) / 1e18;
+
+        assertEq(area.unwrap(), expected);
+    }
+
+    function testFuzz_integrate_linearDegenerate_isExact(uint256 from, uint256 to) public view {
+        // For p(s) = 4s + 1, integral = 2s² + s — no /3 term, so exact
+        from = bound(from, 0, 500e18);
+        to = bound(to, from, 1000e18);
+
+        SD59x18 area = ParabolicLib.integrate(linearDegenerateParams, sd(int256(from)), sd(int256(to)));
+
+        // F(s) = 2s² + s → F(to) - F(from)
+        int256 fTo = 2 * int256(to) * int256(to) / 1e18 + int256(to);
+        int256 fFrom = 2 * int256(from) * int256(from) / 1e18 + int256(from);
+
+        assertEq(area.unwrap(), fTo - fFrom);
+    }
 }
