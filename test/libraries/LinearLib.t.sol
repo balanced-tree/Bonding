@@ -108,5 +108,63 @@ contract LinearLibTest is BaseTest, Helpers {
         assertEq(price.unwrap(), 0);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                  INTEGRATE: ∫(m·s + b)ds = m·s²/2 + b·s
+    //////////////////////////////////////////////////////////////*/
+
+    function test_integrate_default_zeroToTen() public view {
+        // ∫₀¹⁰ s ds = 10²/2 = 50
+        SD59x18 area = LinearLib.integrate(defaultParams, sd(0), sd(10e18));
+        assertEq(area.unwrap(), 50e18);
+    }
+
+    function test_integrate_default_zeroToHundred() public view {
+        // ∫₀¹⁰⁰ s ds = 100²/2 = 5000
+        SD59x18 area = LinearLib.integrate(defaultParams, sd(0), sd(100e18));
+        assertEq(area.unwrap(), 5000e18);
+    }
+
+    function test_integrate_default_nonZeroStart() public view {
+        // ∫₁₀²⁰ s ds = 20²/2 - 10²/2 = 200 - 50 = 150
+        SD59x18 area = LinearLib.integrate(defaultParams, sd(10e18), sd(20e18));
+        assertEq(area.unwrap(), 150e18);
+    }
+
+    function test_integrate_slopeIntercept_zeroToTen() public view {
+        // ∫₀¹⁰ (2s + 3) ds = [s² + 3s]₀¹⁰ = 100 + 30 = 130
+        SD59x18 area = LinearLib.integrate(slopeInterceptParams, sd(0), sd(10e18));
+        assertEq(area.unwrap(), 130e18);
+    }
+
+    function test_integrate_slopeIntercept_fiveToFifteen() public view {
+        // ∫₅¹⁵ (2s + 3) ds = [s² + 3s]₅¹⁵ = (225 + 45) - (25 + 15) = 270 - 40 = 230
+        SD59x18 area = LinearLib.integrate(slopeInterceptParams, sd(5e18), sd(15e18));
+        assertEq(area.unwrap(), 230e18);
+    }
+
+    function test_integrate_flat_zeroToHundred() public view {
+        // ∫₀¹⁰⁰ 5 ds = 5 · 100 = 500
+        SD59x18 area = LinearLib.integrate(flatParams, sd(0), sd(100e18));
+        assertEq(area.unwrap(), 500e18);
+    }
+
+    function test_integrate_flat_tenToFifty() public view {
+        // ∫₁₀⁵⁰ 5 ds = 5 · 40 = 200
+        SD59x18 area = LinearLib.integrate(flatParams, sd(10e18), sd(50e18));
+        assertEq(area.unwrap(), 200e18);
+    }
+
+    function test_integrate_negSlope_zeroToHundred() public view {
+        // ∫₀¹⁰⁰ (-0.5s + 100) ds = [-0.25s² + 100s]₀¹⁰⁰ = -2500 + 10000 = 7500
+        SD59x18 area = LinearLib.integrate(negSlopeParams, sd(0), sd(100e18));
+        assertEq(area.unwrap(), 7500e18);
+    }
+
+    function test_integrate_zeroWidth_returnsZero() public view {
+        // ∫₁₀¹⁰ anything ds = 0
+        SD59x18 area = LinearLib.integrate(defaultParams, sd(10e18), sd(10e18));
+        assertEq(area.unwrap(), 0);
+    }
+
     
 }
