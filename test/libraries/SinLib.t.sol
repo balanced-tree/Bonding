@@ -437,5 +437,55 @@ contract SinLibTest is BaseTest, Helpers {
         assertApproxEqRel(uint256(diff), uint256(expected), TRIG_TOLERANCE);
     }
 
-    
+    /*//////////////////////////////////////////////////////////////
+                INTEGRATE: HIGH FREQUENCY & NON-ZERO START
+    //////////////////////////////////////////////////////////////*/
+
+    function test_integrate_highFreq_zeroToFullCycle() public view {
+        // w=10, so one full cycle is 2π/10 in supply space
+        // Over full cycle, sin cancels: area = b · (2π/10) = 2 · 2π/10 = 2π/5
+        SD59x18 period = sd(2 * PI / 10);
+        SD59x18 area = SinLib.integrate(highFreqParams, sd(0), period);
+        uint256 expected = uint256(2 * PI / 5); // b=2 · period = 2 · 2π/10
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    function test_integrate_highFreq_twoCycles() public view {
+        // Two full cycles: area = b · 2 · (2π/10) = 2 · 4π/10 = 4π/5
+        SD59x18 twoPeriods = sd(4 * PI / 10);
+        SD59x18 area = SinLib.integrate(highFreqParams, sd(0), twoPeriods);
+        uint256 expected = uint256(4 * PI / 5);
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    function test_integrate_default_nonZeroStart() public view {
+        // ∫₁² (sin(s) + 2) ds = F(2) - F(1)
+        // F(s) = -cos(s) + 2s
+        // F(2) = -cos(2) + 4 ≈ -(-0.41615) + 4 = 4.41615
+        // F(1) = -cos(1) + 2 ≈ -0.54030 + 2 = 1.45970
+        // area ≈ 4.41615 - 1.45970 = 2.95645
+        SD59x18 area = SinLib.integrate(defaultParams, sd(1e18), sd(2e18));
+        assertApproxEqRel(uint256(area.unwrap()), 2_956449142415200000, TRIG_TOLERANCE);
+    }
+
+    function test_integrate_phaseShifted_zeroToHalfPi() public view {
+        // F(s) = -cos(s + π/2) + 2s = sin(s) + 2s  (since -cos(x+π/2) = sin(x))
+        // F(π/2) = sin(π/2) + 2·(π/2) = 1 + π ≈ 4.14159
+        // F(0)   = sin(0) + 0 = 0
+        // area ≈ 4.14159
+        SD59x18 area = SinLib.integrate(phaseShiftedParams, sd(0), sd(HALF_PI));
+        uint256 expected = uint256(1e18 + PI);
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    function test_integrate_scaledAmplitude_nonZeroStart() public view {
+        // ∫_π^(2π) (3·sin(s) + 5) ds = F(2π) - F(π)
+        // F(s) = -3·cos(s) + 5s
+        // F(2π) = -3·cos(2π) + 10π = -3 + 10π
+        // F(π)  = -3·cos(π) + 5π  = 3 + 5π
+        // area = (-3 + 10π) - (3 + 5π) = -6 + 5π ≈ 9.7080
+        SD59x18 area = SinLib.integrate(scaledAmplitudeParams, sd(PI), sd(2 * PI));
+        uint256 expected = uint256(5 * PI - 6e18);
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
 }
