@@ -48,4 +48,65 @@ contract LinearLibTest is BaseTest, Helpers {
         // Reusable segment: LINEAR over [0, 1000e18] with default params
         defaultSegments.push(_createLinearSegment(0, 1000e18));
     }
+
+    /*//////////////////////////////////////////////////////////////
+                      SPOT PRICE: p(s) = m·s + b
+    //////////////////////////////////////////////////////////////*/
+
+    function test_spotPrice_default_atZero() public view {
+        // p(0) = 1·0 + 0 = 0
+        SD59x18 price = LinearLib.spotPrice(defaultParams, sd(0));
+        assertEq(price.unwrap(), 0);
+    }
+
+    function test_spotPrice_default_atOne() public view {
+        // p(1) = 1·1 + 0 = 1
+        SD59x18 price = LinearLib.spotPrice(defaultParams, sd(1e18));
+        assertEq(price.unwrap(), 1e18);
+    }
+
+    function test_spotPrice_default_atLargeSupply() public view {
+        // p(500) = 500
+        SD59x18 price = LinearLib.spotPrice(defaultParams, sd(500e18));
+        assertEq(price.unwrap(), 500e18);
+    }
+
+    function test_spotPrice_slopeIntercept_atZero() public view {
+        // p(0) = 2·0 + 3 = 3
+        SD59x18 price = LinearLib.spotPrice(slopeInterceptParams, sd(0));
+        assertEq(price.unwrap(), 3e18);
+    }
+
+    function test_spotPrice_slopeIntercept_atTen() public view {
+        // p(10) = 2·10 + 3 = 23
+        SD59x18 price = LinearLib.spotPrice(slopeInterceptParams, sd(10e18));
+        assertEq(price.unwrap(), 23e18);
+    }
+
+    function test_spotPrice_flat_isConstant() public view {
+        // p(s) = 5 for any s
+        assertEq(LinearLib.spotPrice(flatParams, sd(0)).unwrap(), 5e18);
+        assertEq(LinearLib.spotPrice(flatParams, sd(100e18)).unwrap(), 5e18);
+        assertEq(LinearLib.spotPrice(flatParams, sd(999e18)).unwrap(), 5e18);
+    }
+
+    function test_spotPrice_negSlope_atZero() public view {
+        // p(0) = -0.5·0 + 100 = 100
+        SD59x18 price = LinearLib.spotPrice(negSlopeParams, sd(0));
+        assertEq(price.unwrap(), 100e18);
+    }
+
+    function test_spotPrice_negSlope_atHundred() public view {
+        // p(100) = -0.5·100 + 100 = 50
+        SD59x18 price = LinearLib.spotPrice(negSlopeParams, sd(100e18));
+        assertEq(price.unwrap(), 50e18);
+    }
+
+    function test_spotPrice_negSlope_atTwoHundred() public view {
+        // p(200) = -0.5·200 + 100 = 0
+        SD59x18 price = LinearLib.spotPrice(negSlopeParams, sd(200e18));
+        assertEq(price.unwrap(), 0);
+    }
+
+    
 }
