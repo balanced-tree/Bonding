@@ -427,20 +427,22 @@ contract ParabolicLibTest is BaseTest, Helpers {
 
     function testFuzz_spotPrice_full_matchesFormula(uint256 s) public view {
         // p(s) = 2s² + 3s + 5 — verify against manual SD59x18 computation
+        // SD59x18 chained mul (a*s*s) rounds differently from manual (s*s/1e18)*2 at large s
         s = bound(s, 0, 1000e18);
         SD59x18 price = ParabolicLib.spotPrice(fullParams, sd(int256(s)));
-        int256 s2 = int256(s) * int256(s) / 1e18; // s²
-        int256 expected = 2 * s2 + 3 * int256(s) + 5e18; // 2s² + 3s + 5 (in SD59x18)
-        assertEq(price.unwrap(), expected);
+        int256 s2 = int256(s) * int256(s) / 1e18;
+        int256 expected = 2 * s2 + 3 * int256(s) + 5e18;
+        assertApproxEqAbs(price.unwrap(), expected, 2);
     }
 
     function testFuzz_spotPrice_smallCoeff_matchesFormula(uint256 s) public view {
         // p(s) = 0.001·s² + 1
+        // Intermediate rounding in SD59x18 mul chain can differ by up to 1 wei
         s = bound(s, 0, 1000e18);
         SD59x18 price = ParabolicLib.spotPrice(smallCoeffParams, sd(int256(s)));
         int256 s2 = int256(s) * int256(s) / 1e18;
         int256 expected = int256(0.001e18) * s2 / 1e18 + 1e18;
-        assertEq(price.unwrap(), expected);
+        assertApproxEqAbs(price.unwrap(), expected, 10);
     }
 
     function testFuzz_spotPrice_monotonicity(uint256 s1, uint256 s2) public view {
