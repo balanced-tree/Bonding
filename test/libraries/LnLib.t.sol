@@ -277,5 +277,32 @@ contract LnLibTest is BaseTest, Helpers {
         assertApproxEqAbs(whole.unwrap(), (p1 + p2 + p3).unwrap(), 2);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                      SPOT-INTEGRAL CONSISTENCY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_spotIntegralConsistency_default() public view {
+        // For tiny δ: ∫(s, s+δ) ≈ p(s)·δ
+        SD59x18 s = sd(50e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = LnLib.spotPrice(defaultParams, s);
+        SD59x18 area = LnLib.integrate(defaultParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
+    function test_spotIntegralConsistency_scaledOffset() public view {
+        SD59x18 s = sd(25e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = LnLib.spotPrice(scaledOffsetParams, s);
+        SD59x18 area = LnLib.integrate(scaledOffsetParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
     
 }
