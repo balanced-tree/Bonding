@@ -257,4 +257,240 @@ contract ExponentialLibTest is BaseTest, Helpers {
         SD59x18 price = ExponentialLib.spotPrice(params, sd(0));
         assertEq(price.unwrap(), int256(a) + int256(b));
     }
+
+    /*//////////////////////////////////////////////////////////////
+            INTEGRATE: ∫(a·e^(k·s) + b)ds = a/k·e^(k·s) + b·s
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Default: F(s) = e^s, ∫ = e^sTo - e^sFrom ─────────────
+
+    function test_integrate_default_zeroToOne() public view {
+        // ∫₀¹ e^s ds = e - 1 ≈ 1.71828...
+        SD59x18 area = ExponentialLib.integrate(defaultParams, sd(0), sd(1e18));
+        assertApproxEqRel(uint256(area.unwrap()), 1_718281828459045235, 0.0001e18);
+    }
+
+    function test_integrate_default_zeroToTwo() public view {
+        // ∫₀² e^s ds = e² - 1 ≈ 6.38906...
+        SD59x18 area = ExponentialLib.integrate(defaultParams, sd(0), sd(2e18));
+        assertApproxEqRel(uint256(area.unwrap()), 6_389056098930650227, 0.0001e18);
+    }
+
+    function test_integrate_default_oneToTwo() public view {
+        // ∫₁² e^s ds = e² - e ≈ 4.67077...
+        SD59x18 area = ExponentialLib.integrate(defaultParams, sd(1e18), sd(2e18));
+        assertApproxEqRel(uint256(area.unwrap()), 4_670774270471604992, 0.001e18);
+    }
+
+    function test_integrate_default_zeroToFive() public view {
+        // ∫₀⁵ e^s ds = e⁵ - 1 ≈ 147.413...
+        SD59x18 area = ExponentialLib.integrate(defaultParams, sd(0), sd(5e18));
+        assertApproxEqRel(uint256(area.unwrap()), 147_413159102576603421, 0.001e18);
+    }
+
+    function test_integrate_default_zeroToTen() public view {
+        // ∫₀¹⁰ e^s ds = e¹⁰ - 1 ≈ 22025.466...
+        SD59x18 area = ExponentialLib.integrate(defaultParams, sd(0), sd(10e18));
+        assertApproxEqRel(uint256(area.unwrap()), 22025_465794806716000000, 0.01e18);
+    }
+
+    // ── Offset: F(s) = e^s + 5s ──────────────────────────────
+
+    function test_integrate_offset_zeroToOne() public view {
+        // ∫₀¹ (e^s + 5) ds = (e - 1) + 5 ≈ 6.71828...
+        SD59x18 area = ExponentialLib.integrate(offsetParams, sd(0), sd(1e18));
+        assertApproxEqRel(uint256(area.unwrap()), 6_718281828459045235, 0.0001e18);
+    }
+
+    function test_integrate_offset_zeroToTwo() public view {
+        // ∫₀² (e^s + 5) ds = (e² - 1) + 10 ≈ 16.38906...
+        SD59x18 area = ExponentialLib.integrate(offsetParams, sd(0), sd(2e18));
+        assertApproxEqRel(uint256(area.unwrap()), 16_389056098930650227, 0.0001e18);
+    }
+
+    function test_integrate_offset_oneToTwo() public view {
+        // ∫₁² (e^s + 5) ds = (e² - e) + 5 ≈ 9.67077...
+        SD59x18 area = ExponentialLib.integrate(offsetParams, sd(1e18), sd(2e18));
+        assertApproxEqRel(uint256(area.unwrap()), 9_670774270471604992, 0.001e18);
+    }
+
+    // ── Slow growth: F(s) = 100·e^(0.01s) ────────────────────
+
+    function test_integrate_slowGrowth_zeroToHundred() public view {
+        // ∫₀¹⁰⁰ e^(0.01s) ds = (1/0.01)·(e^1 - 1) = 100·(e-1) ≈ 171.828...
+        SD59x18 area = ExponentialLib.integrate(slowGrowthParams, sd(0), sd(100e18));
+        assertApproxEqRel(uint256(area.unwrap()), 171_828182845904523500, 0.001e18);
+    }
+
+    function test_integrate_slowGrowth_zeroToTwoHundred() public view {
+        // ∫₀²⁰⁰ e^(0.01s) ds = 100·(e^2 - 1) ≈ 638.906...
+        SD59x18 area = ExponentialLib.integrate(slowGrowthParams, sd(0), sd(200e18));
+        assertApproxEqRel(uint256(area.unwrap()), 638_905609893065022700, 0.001e18);
+    }
+
+    // ── Scaled: F(s) = 6·e^(0.5s) + 2s (a/k = 3/0.5 = 6) ───
+
+    function test_integrate_scaled_zeroToTwo() public view {
+        // ∫₀² (3·e^(0.5s) + 2) ds = 6·(e^1 - 1) + 4 ≈ 14.30969...
+        SD59x18 area = ExponentialLib.integrate(scaledParams, sd(0), sd(2e18));
+        assertApproxEqRel(uint256(area.unwrap()), 14_309690970754271410, 0.001e18);
+    }
+
+    function test_integrate_scaled_zeroToFour() public view {
+        // ∫₀⁴ (3·e^(0.5s) + 2) ds = 6·(e^2 - 1) + 8 ≈ 46.33434...
+        SD59x18 area = ExponentialLib.integrate(scaledParams, sd(0), sd(4e18));
+        assertApproxEqRel(uint256(area.unwrap()), 46_334336593583901362, 0.001e18);
+    }
+
+    function test_integrate_scaled_twoToFour() public view {
+        // ∫₂⁴ = ∫₀⁴ - ∫₀² = 46.334... - 14.310... ≈ 32.025...
+        SD59x18 full = ExponentialLib.integrate(scaledParams, sd(0), sd(4e18));
+        SD59x18 first = ExponentialLib.integrate(scaledParams, sd(0), sd(2e18));
+        SD59x18 second = ExponentialLib.integrate(scaledParams, sd(2e18), sd(4e18));
+        assertEq(full.unwrap(), (first + second).unwrap());
+    }
+
+    // ── Small amplitude: F(s) = 0.1·e^s ──────────────────────
+
+    function test_integrate_smallAmp_zeroToOne() public view {
+        // ∫₀¹ 0.1·e^s ds = 0.1·(e - 1) ≈ 0.17183...
+        SD59x18 area = ExponentialLib.integrate(smallAmpParams, sd(0), sd(1e18));
+        assertApproxEqRel(uint256(area.unwrap()), 171828182845904523, 0.001e18);
+    }
+
+    function test_integrate_smallAmp_zeroToFive() public view {
+        // ∫₀⁵ 0.1·e^s ds = 0.1·(e⁵ - 1) ≈ 14.741...
+        SD59x18 area = ExponentialLib.integrate(smallAmpParams, sd(0), sd(5e18));
+        assertApproxEqRel(uint256(area.unwrap()), 14_741315910257660342, 0.001e18);
+    }
+
+    // ── Zero width ────────────────────────────────────────────
+
+    function test_integrate_zeroWidth_returnsZero() public view {
+        assertEq(ExponentialLib.integrate(defaultParams, sd(5e18), sd(5e18)).unwrap(), 0);
+        assertEq(ExponentialLib.integrate(scaledParams, sd(3e18), sd(3e18)).unwrap(), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            ADDITIVITY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_integrate_additivity_default() public view {
+        // ∫₀⁵ = ∫₀² + ∫₂⁵
+        SD59x18 whole = ExponentialLib.integrate(defaultParams, sd(0), sd(5e18));
+        SD59x18 part1 = ExponentialLib.integrate(defaultParams, sd(0), sd(2e18));
+        SD59x18 part2 = ExponentialLib.integrate(defaultParams, sd(2e18), sd(5e18));
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function test_integrate_additivity_offset() public view {
+        // ∫₀⁴ = ∫₀¹ + ∫₁⁴
+        SD59x18 whole = ExponentialLib.integrate(offsetParams, sd(0), sd(4e18));
+        SD59x18 part1 = ExponentialLib.integrate(offsetParams, sd(0), sd(1e18));
+        SD59x18 part2 = ExponentialLib.integrate(offsetParams, sd(1e18), sd(4e18));
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function test_integrate_additivity_threeWaySplit() public view {
+        // ∫₀⁶ = ∫₀² + ∫₂⁴ + ∫₄⁶
+        SD59x18 whole = ExponentialLib.integrate(defaultParams, sd(0), sd(6e18));
+        SD59x18 p1 = ExponentialLib.integrate(defaultParams, sd(0), sd(2e18));
+        SD59x18 p2 = ExponentialLib.integrate(defaultParams, sd(2e18), sd(4e18));
+        SD59x18 p3 = ExponentialLib.integrate(defaultParams, sd(4e18), sd(6e18));
+        assertEq(whole.unwrap(), (p1 + p2 + p3).unwrap());
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                      SPOT-INTEGRAL CONSISTENCY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_spotIntegralConsistency_default() public view {
+        // For tiny δ, ∫[s, s+δ] ≈ p(s)·δ
+        SD59x18 s = sd(3e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = ExponentialLib.spotPrice(defaultParams, s);
+        SD59x18 area = ExponentialLib.integrate(defaultParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
+    function test_spotIntegralConsistency_scaled() public view {
+        SD59x18 s = sd(4e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = ExponentialLib.spotPrice(scaledParams, s);
+        SD59x18 area = ExponentialLib.integrate(scaledParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    FUZZ: UNIVERSAL PROPERTIES
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_integrate_additivity(uint256 a, uint256 b, uint256 c) public view {
+        // ∫[a,c] = ∫[a,b] + ∫[b,c]
+        a = bound(a, 0, 30e18);
+        b = bound(b, a, 60e18);
+        c = bound(c, b, 90e18);
+
+        SD59x18 whole = ExponentialLib.integrate(defaultParams, sd(int256(a)), sd(int256(c)));
+        SD59x18 part1 = ExponentialLib.integrate(defaultParams, sd(int256(a)), sd(int256(b)));
+        SD59x18 part2 = ExponentialLib.integrate(defaultParams, sd(int256(b)), sd(int256(c)));
+
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function testFuzz_integrate_monotonicity(uint256 start, uint256 end1, uint256 end2) public view {
+        // Wider range → larger area (e^s > 0 everywhere)
+        start = bound(start, 0, 30e18);
+        end1 = bound(end1, start, 60e18);
+        end2 = bound(end2, end1, 90e18);
+
+        SD59x18 area1 = ExponentialLib.integrate(defaultParams, sd(int256(start)), sd(int256(end1)));
+        SD59x18 area2 = ExponentialLib.integrate(defaultParams, sd(int256(start)), sd(int256(end2)));
+
+        assertTrue(area2 >= area1);
+    }
+
+    function testFuzz_integrate_nonNegative(uint256 from, uint256 to) public view {
+        // e^s > 0, so integral is always non-negative for to >= from
+        from = bound(from, 0, 60e18);
+        to = bound(to, from, 120e18);
+
+        SD59x18 area = ExponentialLib.integrate(defaultParams, sd(int256(from)), sd(int256(to)));
+        assertTrue(area.unwrap() >= 0);
+    }
+
+    function testFuzz_integrate_zeroWidth_returnsZero(uint256 s) public view {
+        s = bound(s, 0, 100e18);
+        assertEq(ExponentialLib.integrate(defaultParams, sd(int256(s)), sd(int256(s))).unwrap(), 0);
+    }
+
+    function testFuzz_spotIntegralConsistency(uint256 s) public view {
+        // Fundamental theorem: ∫[s, s+δ] ≈ p(s)·δ for tiny δ
+        s = bound(s, 0, 50e18);
+        SD59x18 delta = sd(0.0001e18);
+
+        SD59x18 spot = ExponentialLib.spotPrice(defaultParams, sd(int256(s)));
+        SD59x18 area = ExponentialLib.integrate(defaultParams, sd(int256(s)), sd(int256(s)) + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
+    function testFuzz_integrate_offset_addsBsLinearTerm(uint256 from, uint256 to) public view {
+        // ∫ (e^s + 5) ds - ∫ e^s ds = 5·(to - from)
+        from = bound(from, 0, 60e18);
+        to = bound(to, from + 1e18, 120e18);
+
+        SD59x18 areaOffset = ExponentialLib.integrate(offsetParams, sd(int256(from)), sd(int256(to)));
+        SD59x18 areaDefault = ExponentialLib.integrate(defaultParams, sd(int256(from)), sd(int256(to)));
+        SD59x18 bTerm = sd(5e18) * (sd(int256(to)) - sd(int256(from)));
+
+        assertEq(areaOffset.unwrap(), (areaDefault + bTerm).unwrap());
+    }
 }
