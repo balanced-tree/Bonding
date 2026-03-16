@@ -347,5 +347,95 @@ contract SinLibTest is BaseTest, Helpers {
         assertApproxEqRel(uint256(whole.unwrap()), uint256((p1 + p2 + p3).unwrap()), TRIG_TOLERANCE);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                      SPOT-INTEGRAL CONSISTENCY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_spotIntegralConsistency_default() public view {
+        // For tiny δ: ∫(s, s+δ) ≈ p(s)·δ
+        SD59x18 s = sd(1e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = SinLib.spotPrice(defaultParams, s);
+        SD59x18 area = SinLib.integrate(defaultParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), TRIG_TOLERANCE);
+    }
+
+    function test_spotIntegralConsistency_scaledAmplitude() public view {
+        SD59x18 s = sd(2e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = SinLib.spotPrice(scaledAmplitudeParams, s);
+        SD59x18 area = SinLib.integrate(scaledAmplitudeParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), TRIG_TOLERANCE);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                      FUZZ: UNIVERSAL PROPERTIES
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_integrate_fullCycleEqualsOffset(uint256 start) public view {
+        // Over any full cycle, the sin component cancels: area = b · 2π
+        start = bound(start, 1e18, 100e18);
+        SD59x18 s = sd(int256(start));
+
+        SD59x18 area = SinLib.integrate(defaultParams, s, s + sd(2 * PI));
+        uint256 expected = uint256(4 * PI); // b=2, so 2 · 2π = 4π
+
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    function testFuzz_integrate_nonNegative(uint256 from, uint256 to) public view {
+        // price >= 1 everywhere (min = sin_min + b = -1 + 2 = 1), so integral is non-negative
+        from = bound(from, 1e18, 50e18);
+        to = bound(to, from, 100e18);
+
+        SD59x18 area = SinLib.integrate(defaultParams, sd(int256(from)), sd(int256(to)));
+        assertTrue(area >= sd(0));
+    }
+
+    function testFuzz_integrate_monotonicity(uint256 start, uint256 end1, uint256 end2) public view {
+        // Wider range → larger area (since price is always >= 1)
+        start = bound(start, 1e18, 30e18);
+        end1 = bound(end1, start, 60e18);
+        end2 = bound(end2, end1, 90e18);
+
+        SD59x18 area1 = SinLib.integrate(defaultParams, sd(int256(start)), sd(int256(end1)));
+        SD59x18 area2 = SinLib.integrate(defaultParams, sd(int256(start)), sd(int256(end2)));
+
+        assertTrue(area2 >= area1);
+    }
+
+    function testFuzz_integrate_additivity(uint256 a, uint256 b, uint256 c) public view {
+        a = bound(a, 1e18, 10e18);
+        b = bound(b, a, 20e18);
+        c = bound(c, b, 30e18);
+
+        SD59x18 whole = SinLib.integrate(defaultParams, sd(int256(a)), sd(int256(c)));
+        SD59x18 part1 = SinLib.integrate(defaultParams, sd(int256(a)), sd(int256(b)));
+        SD59x18 part2 = SinLib.integrate(defaultParams, sd(int256(b)), sd(int256(c)));
+
+        // Trig lookup rounding can accumulate across two separate calls
+        assertApproxEqRel(uint256(whole.unwrap()), uint256((part1 + part2).unwrap()), TRIG_TOLERANCE);
+    }
+
+    function testFuzz_integrate_offsetDifference(uint256 from, uint256 to) public view {
+        // highOffsetParams and defaultParams differ only in b (10 vs 2)
+        // So their integral difference over any [from, to] = (10 - 2) · (to - from)
+        from = bound(from, 1e18, 50e18);
+        to = bound(to, from + 1e18, 100e18);
+
+        SD59x18 areaDefault = SinLib.integrate(defaultParams, sd(int256(from)), sd(int256(to)));
+        SD59x18 areaHigh = SinLib.integrate(highOffsetParams, sd(int256(from)), sd(int256(to)));
+        int256 diff = (areaHigh - areaDefault).unwrap();
+
+        int256 expected = 8e18 * (int256(to) - int256(from)) / 1e18;
+        assertApproxEqRel(uint256(diff), uint256(expected), TRIG_TOLERANCE);
+    }
+
     
 }
