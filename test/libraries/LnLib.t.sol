@@ -159,4 +159,123 @@ contract LnLibTest is BaseTest, Helpers {
 
         assertApproxEqRel(uint256(fracMinusOffset.unwrap()), uint256(halfDefault.unwrap()), 0.0001e18);
     }
+
+    /*//////////////////////////////////////////////////////////////
+            INTEGRATE: ∫(a·ln(s + c) + b) ds
+                     = a·[(s+c)·ln(s+c) - (s+c)] + b·s
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Default: ∫ ln(s + 1) ds ─────────────────────────────────
+
+    function test_integrate_default_zeroToZero() public view {
+        // Zero-width integral = 0
+        SD59x18 area = LnLib.integrate(defaultParams, sd(0), sd(0));
+        assertEq(area.unwrap(), 0);
+    }
+
+    function test_integrate_default_zeroToOne() public view {
+        // ∫₀¹ ln(s+1) ds = [F(1) - F(0)]
+        // F(s) = (s+1)·ln(s+1) - (s+1)
+        // F(1) = 2·ln(2) - 2 ≈ 2·0.693147 - 2 = -0.613706
+        // F(0) = 1·ln(1) - 1 = -1
+        // area = -0.613706 - (-1) = 0.386294
+        SD59x18 area = LnLib.integrate(defaultParams, sd(0), sd(1e18));
+        assertApproxEqRel(uint256(area.unwrap()), 0.386294361119890618e18, 0.0001e18);
+    }
+
+    function test_integrate_default_zeroToEMinusOne() public view {
+        // ∫₀^(e-1) ln(s+1) ds
+        // F(e-1) = e·ln(e) - e = e - e = 0
+        // F(0) = 1·ln(1) - 1 = -1
+        // area = 0 - (-1) = 1
+        SD59x18 eMinus1 = sd(1_718281828459045235);
+        SD59x18 area = LnLib.integrate(defaultParams, sd(0), eMinus1);
+        assertApproxEqRel(uint256(area.unwrap()), 1e18, 0.001e18);
+    }
+
+    function test_integrate_default_nonZeroStart() public view {
+        // ∫₁₀²⁰ ln(s+1) ds = F(20) - F(10)
+        // F(20) = 21·ln(21) - 21 ≈ 21·3.044522 - 21 = 63.934968 - 21 = 42.934968
+        // F(10) = 11·ln(11) - 11 ≈ 11·2.397895 - 11 = 26.376852 - 11 = 15.376852
+        // area ≈ 42.934968 - 15.376852 = 27.558116
+        SD59x18 area = LnLib.integrate(defaultParams, sd(10e18), sd(20e18));
+        assertApproxEqRel(uint256(area.unwrap()), 27_558116109637648000, 0.001e18);
+    }
+
+    // ── Scaled + offset: ∫ (2·ln(s+1) + 5) ds ──────────────────
+
+    function test_integrate_scaledOffset_zeroToTen() public view {
+        // ∫₀¹⁰ (2·ln(s+1) + 5) ds = 2·[F_ln(10) - F_ln(0)] + 5·10
+        // F_ln(s) = (s+1)·ln(s+1) - (s+1)
+        // F_ln(10) = 11·ln(11) - 11 ≈ 15.376852
+        // F_ln(0)  = -1
+        // ln part = 2·(15.376852 - (-1)) = 2·16.376852 = 32.753704
+        // b part = 50
+        // total ≈ 82.753704
+        SD59x18 area = LnLib.integrate(scaledOffsetParams, sd(0), sd(10e18));
+        assertApproxEqRel(uint256(area.unwrap()), 82_753704438375846000, 0.001e18);
+    }
+
+    // ── Flat: ∫ (0.5·ln(s+1) + 10) ds ──────────────────────────
+
+    function test_integrate_fractional_zeroToTen() public view {
+        // ∫₀¹⁰ (0.5·ln(s+1) + 10) ds = 0.5·[F_ln(10) - F_ln(0)] + 10·10
+        // = 0.5·16.376852 + 100 = 8.188426 + 100 ≈ 108.188426
+        SD59x18 area = LnLib.integrate(fractionalParams, sd(0), sd(10e18));
+        assertApproxEqRel(uint256(area.unwrap()), 108_188426109593961000, 0.001e18);
+    }
+
+    function test_integrate_fractional_offsetDominates() public view {
+        // For large ranges, the b·s term (10·s) should dwarf the ln term
+        SD59x18 area = LnLib.integrate(fractionalParams, sd(0), sd(100e18));
+        // b·s component alone = 10·100 = 1000
+        // Total should be close to but larger than 1000
+        assertTrue(area.unwrap() > 1000e18);
+        // The ln part for 0.5·ln(s+1) over [0,100] is modest
+        assertTrue(area.unwrap() < 1200e18);
+    }
+
+    // ── Large shift: ∫ ln(s + 100) ds ───────────────────────────
+
+    function test_integrate_largeShift_zeroToHundred() public view {
+        // ∫₀¹⁰⁰ ln(s+100) ds = F(100) - F(0)
+        // F(s) = (s+100)·ln(s+100) - (s+100)
+        // F(100) = 200·ln(200) - 200 ≈ 200·5.298317 - 200 = 1059.663 - 200 = 859.663
+        // F(0)   = 100·ln(100) - 100 ≈ 100·4.605170 - 100 = 460.517 - 100 = 360.517
+        // area ≈ 859.663 - 360.517 ≈ 499.146
+        SD59x18 area = LnLib.integrate(largeShiftParams, sd(0), sd(100e18));
+        assertApproxEqRel(uint256(area.unwrap()), 499_146318053945544000, 0.001e18);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          ADDITIVITY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_integrate_additivity_default() public view {
+        // ∫₀³⁰ = ∫₀¹⁰ + ∫₁₀³⁰
+        SD59x18 whole = LnLib.integrate(defaultParams, sd(0), sd(30e18));
+        SD59x18 part1 = LnLib.integrate(defaultParams, sd(0), sd(10e18));
+        SD59x18 part2 = LnLib.integrate(defaultParams, sd(10e18), sd(30e18));
+
+        assertApproxEqAbs(whole.unwrap(), (part1 + part2).unwrap(), 1);
+    }
+
+    function test_integrate_additivity_scaledOffset() public view {
+        SD59x18 whole = LnLib.integrate(scaledOffsetParams, sd(0), sd(50e18));
+        SD59x18 part1 = LnLib.integrate(scaledOffsetParams, sd(0), sd(20e18));
+        SD59x18 part2 = LnLib.integrate(scaledOffsetParams, sd(20e18), sd(50e18));
+
+        assertApproxEqAbs(whole.unwrap(), (part1 + part2).unwrap(), 1);
+    }
+
+    function test_integrate_additivity_threeWaySplit() public view {
+        SD59x18 whole = LnLib.integrate(defaultParams, sd(0), sd(60e18));
+        SD59x18 p1 = LnLib.integrate(defaultParams, sd(0), sd(15e18));
+        SD59x18 p2 = LnLib.integrate(defaultParams, sd(15e18), sd(40e18));
+        SD59x18 p3 = LnLib.integrate(defaultParams, sd(40e18), sd(60e18));
+
+        assertApproxEqAbs(whole.unwrap(), (p1 + p2 + p3).unwrap(), 2);
+    }
+
+    
 }
