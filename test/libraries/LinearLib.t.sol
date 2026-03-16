@@ -166,5 +166,64 @@ contract LinearLibTest is BaseTest, Helpers {
         assertEq(area.unwrap(), 0);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                              ADDITIVITY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_integrate_additivity_default() public view {
+        // ∫₀³⁰ = ∫₀¹⁰ + ∫₁₀³⁰
+        SD59x18 whole = LinearLib.integrate(defaultParams, sd(0), sd(30e18));
+        SD59x18 part1 = LinearLib.integrate(defaultParams, sd(0), sd(10e18));
+        SD59x18 part2 = LinearLib.integrate(defaultParams, sd(10e18), sd(30e18));
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function test_integrate_additivity_slopeIntercept() public view {
+        // ∫₀²⁰ = ∫₀⁷ + ∫₇²⁰
+        SD59x18 whole = LinearLib.integrate(slopeInterceptParams, sd(0), sd(20e18));
+        SD59x18 part1 = LinearLib.integrate(slopeInterceptParams, sd(0), sd(7e18));
+        SD59x18 part2 = LinearLib.integrate(slopeInterceptParams, sd(7e18), sd(20e18));
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function test_integrate_additivity_threeWaySplit() public view {
+        // ∫₀³⁰ = ∫₀¹⁰ + ∫₁₀²⁰ + ∫₂₀³⁰
+        SD59x18 whole = LinearLib.integrate(defaultParams, sd(0), sd(30e18));
+        SD59x18 p1 = LinearLib.integrate(defaultParams, sd(0), sd(10e18));
+        SD59x18 p2 = LinearLib.integrate(defaultParams, sd(10e18), sd(20e18));
+        SD59x18 p3 = LinearLib.integrate(defaultParams, sd(20e18), sd(30e18));
+        assertEq(whole.unwrap(), (p1 + p2 + p3).unwrap());
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                      SPOT-INTEGRAL CONSISTENCY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_spotIntegralConsistency_default() public view {
+        // For a tiny δ, integrate(s, s+δ) ≈ spotPrice(s) · δ
+        SD59x18 s = sd(50e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = LinearLib.spotPrice(defaultParams, s);
+        SD59x18 area = LinearLib.integrate(defaultParams, s, s + delta);
+
+        // spot · δ (manual SD59x18 mul: spot * delta / 1e18)
+        SD59x18 approx = spot * delta;
+
+        // Should be very close — within 0.1%
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
+    function test_spotIntegralConsistency_slopeIntercept() public view {
+        SD59x18 s = sd(25e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = LinearLib.spotPrice(slopeInterceptParams, s);
+        SD59x18 area = LinearLib.integrate(slopeInterceptParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
     
 }
