@@ -225,5 +225,49 @@ contract LinearLibTest is BaseTest, Helpers {
         assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
     }
 
-    
+    /*//////////////////////////////////////////////////////////////
+                    FUZZ: UNIVERSAL PROPERTIES
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_spotPrice_default_equalsSupply(uint256 s) public view {
+        // p(s) = s for default params
+        s = bound(s, 0, 999e18);
+        SD59x18 price = LinearLib.spotPrice(defaultParams, sd(int256(s)));
+        assertEq(price.unwrap(), int256(s));
+    }
+
+    function testFuzz_integrate_additivity(uint256 a, uint256 b, uint256 c) public view {
+        a = bound(a, 0, 300e18);
+        b = bound(b, a, 600e18);
+        c = bound(c, b, 900e18);
+
+        SD59x18 whole = LinearLib.integrate(defaultParams, sd(int256(a)), sd(int256(c)));
+        SD59x18 part1 = LinearLib.integrate(defaultParams, sd(int256(a)), sd(int256(b)));
+        SD59x18 part2 = LinearLib.integrate(defaultParams, sd(int256(b)), sd(int256(c)));
+
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function testFuzz_integrate_monotonicity(uint256 start, uint256 end1, uint256 end2) public view {
+        // Wider range → larger area (for non-negative prices)
+        start = bound(start, 0, 300e18);
+        end1 = bound(end1, start, 600e18);
+        end2 = bound(end2, end1, 900e18);
+
+        SD59x18 area1 = LinearLib.integrate(defaultParams, sd(int256(start)), sd(int256(end1)));
+        SD59x18 area2 = LinearLib.integrate(defaultParams, sd(int256(start)), sd(int256(end2)));
+
+        assertTrue(area2 >= area1);
+    }
+
+    function testFuzz_integrate_flat_isExact(uint256 from, uint256 to) public view {
+        // For constant price p(s) = 5, integral is exactly 5·(to - from)
+        from = bound(from, 0, 500e18);
+        to = bound(to, from, 1000e18);
+
+        SD59x18 area = LinearLib.integrate(flatParams, sd(int256(from)), sd(int256(to)));
+        int256 expected = 5e18 * (int256(to) - int256(from)) / 1e18;
+
+        assertEq(area.unwrap(), expected);
+    }
 }
