@@ -227,4 +227,186 @@ contract SinLibTest is BaseTest, Helpers {
 
         assertApproxEqRel(uint256(p0.unwrap()), uint256(pCycle.unwrap()), TRIG_TOLERANCE);
     }
+
+    /*//////////////////////////////////////////////////////////////
+          INTEGRATE: ∫(a·sin(w·s + phi) + b) ds
+                   = -a/w · cos(w·s + phi) + b·s
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Default: ∫ (sin(s) + 2) ds ──────────────────────────────
+
+    function test_integrate_default_zeroToZero() public view {
+        SD59x18 area = SinLib.integrate(defaultParams, sd(0), sd(0));
+        assertEq(area.unwrap(), 0);
+    }
+
+    function test_integrate_default_zeroToHalfPi() public view {
+        // F(s) = -cos(s) + 2s
+        // F(π/2) = -cos(π/2) + 2·(π/2) = -0 + π ≈ 3.14159
+        // F(0)   = -cos(0) + 0 = -1
+        // area = π - (-1) = π + 1 ≈ 4.14159
+        SD59x18 area = SinLib.integrate(defaultParams, sd(0), sd(HALF_PI));
+        assertApproxEqRel(uint256(area.unwrap()), uint256(PI + 1e18), TRIG_TOLERANCE);
+    }
+
+    function test_integrate_default_zeroToPi() public view {
+        // F(π)  = -cos(π) + 2π = 1 + 2π ≈ 7.28318
+        // F(0)  = -1
+        // area = 1 + 2π - (-1) = 2 + 2π ≈ 8.28318
+        SD59x18 area = SinLib.integrate(defaultParams, sd(0), sd(PI));
+        uint256 expected = uint256(2e18 + 2 * PI);
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    function test_integrate_default_zeroToTwoPi() public view {
+        // Over a full cycle, ∫sin(s)ds = 0, so only the b·s term remains
+        // F(2π) = -cos(2π) + 2·(2π) = -1 + 4π
+        // F(0)  = -cos(0) + 0 = -1
+        // area = (-1 + 4π) - (-1) = 4π ≈ 12.56637
+        SD59x18 area = SinLib.integrate(defaultParams, sd(0), sd(2 * PI));
+        uint256 expected = uint256(4 * PI);
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    function test_integrate_default_fullCycleEqualsOffsetOnly() public view {
+        // Over any full cycle [s, s + 2π], the sin integral cancels to 0
+        // So the area equals b · 2π = 2 · 2π = 4π
+        SD59x18 s = sd(1e18);
+        SD59x18 area = SinLib.integrate(defaultParams, s, s + sd(2 * PI));
+        uint256 expected = uint256(4 * PI);
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    // ── High offset: ∫ (sin(s) + 10) ds ─────────────────────────
+
+    function test_integrate_highOffset_zeroToTwoPi() public view {
+        // Over full cycle, sin cancels: area = 10 · 2π = 20π ≈ 62.8318
+        SD59x18 area = SinLib.integrate(highOffsetParams, sd(0), sd(2 * PI));
+        uint256 expected = uint256(20 * PI);
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    function test_integrate_highOffset_exceedsDefault() public view {
+        // Same sin component, but b=10 vs b=2, so highOffset area is always larger
+        SD59x18 areaDefault = SinLib.integrate(defaultParams, sd(0), sd(3e18));
+        SD59x18 areaHigh = SinLib.integrate(highOffsetParams, sd(0), sd(3e18));
+
+        assertTrue(areaHigh > areaDefault);
+        // Difference should be (10 - 2) · 3 = 24
+        assertApproxEqRel(uint256((areaHigh - areaDefault).unwrap()), 24e18, TRIG_TOLERANCE);
+    }
+
+    // ── Scaled amplitude: ∫ (3·sin(s) + 5) ds ──────────────────
+
+    function test_integrate_scaledAmplitude_zeroToTwoPi() public view {
+        // Over full cycle: 3·∫sin = 0, so area = 5 · 2π = 10π ≈ 31.4159
+        SD59x18 area = SinLib.integrate(scaledAmplitudeParams, sd(0), sd(2 * PI));
+        uint256 expected = uint256(10 * PI);
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    function test_integrate_scaledAmplitude_zeroToHalfPi() public view {
+        // F(s) = -3·cos(s) + 5s
+        // F(π/2) = -3·cos(π/2) + 5·(π/2) = 0 + 5π/2 ≈ 7.8540
+        // F(0)   = -3·cos(0) + 0 = -3
+        // area = 5π/2 - (-3) = 5π/2 + 3 ≈ 10.8540
+        SD59x18 area = SinLib.integrate(scaledAmplitudeParams, sd(0), sd(HALF_PI));
+        uint256 expected = uint256(5 * HALF_PI + 3e18);
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    // ── Phase-shifted: ∫ (sin(s + π/2) + 2) ds ─────────────────
+
+    function test_integrate_phaseShifted_zeroToTwoPi() public view {
+        // Over full cycle, sin cancels regardless of phase: area = 2 · 2π = 4π
+        SD59x18 area = SinLib.integrate(phaseShiftedParams, sd(0), sd(2 * PI));
+        uint256 expected = uint256(4 * PI);
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          ADDITIVITY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_integrate_additivity_default() public view {
+        // ∫₀^(2π) = ∫₀^π + ∫_π^(2π)
+        SD59x18 whole = SinLib.integrate(defaultParams, sd(0), sd(2 * PI));
+        SD59x18 part1 = SinLib.integrate(defaultParams, sd(0), sd(PI));
+        SD59x18 part2 = SinLib.integrate(defaultParams, sd(PI), sd(2 * PI));
+
+        assertApproxEqRel(uint256(whole.unwrap()), uint256((part1 + part2).unwrap()), TRIG_TOLERANCE);
+    }
+
+    function test_integrate_additivity_threeWaySplit() public view {
+        // ∫₀^(2π) = ∫₀^(π/2) + ∫_(π/2)^π + ∫_π^(2π)
+        SD59x18 whole = SinLib.integrate(defaultParams, sd(0), sd(2 * PI));
+        SD59x18 p1 = SinLib.integrate(defaultParams, sd(0), sd(HALF_PI));
+        SD59x18 p2 = SinLib.integrate(defaultParams, sd(HALF_PI), sd(PI));
+        SD59x18 p3 = SinLib.integrate(defaultParams, sd(PI), sd(2 * PI));
+
+        assertApproxEqRel(uint256(whole.unwrap()), uint256((p1 + p2 + p3).unwrap()), TRIG_TOLERANCE);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                      SPOT-INTEGRAL CONSISTENCY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_spotIntegralConsistency_default() public view {
+        // For tiny δ: ∫(s, s+δ) ≈ p(s)·δ
+        SD59x18 s = sd(1e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = SinLib.spotPrice(defaultParams, s);
+        SD59x18 area = SinLib.integrate(defaultParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), TRIG_TOLERANCE);
+    }
+
+    function test_spotIntegralConsistency_scaledAmplitude() public view {
+        SD59x18 s = sd(2e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = SinLib.spotPrice(scaledAmplitudeParams, s);
+        SD59x18 area = SinLib.integrate(scaledAmplitudeParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), TRIG_TOLERANCE);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                      FUZZ: UNIVERSAL PROPERTIES
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_integrate_fullCycleEqualsOffset(uint256 start) public view {
+        // Over any full cycle, the sin component cancels: area = b · 2π
+        start = bound(start, 1e18, 100e18);
+        SD59x18 s = sd(int256(start));
+
+        SD59x18 area = SinLib.integrate(defaultParams, s, s + sd(2 * PI));
+        uint256 expected = uint256(4 * PI); // b=2, so 2 · 2π = 4π
+
+        assertApproxEqRel(uint256(area.unwrap()), expected, TRIG_TOLERANCE);
+    }
+
+    function testFuzz_integrate_nonNegative(uint256 from, uint256 to) public view {
+        // price >= 1 everywhere (min = sin_min + b = -1 + 2 = 1), so integral is non-negative
+        from = bound(from, 1e18, 50e18);
+        to = bound(to, from, 100e18);
+
+        SD59x18 area = SinLib.integrate(defaultParams, sd(int256(from)), sd(int256(to)));
+        assertTrue(area >= sd(0));
+    }
+
+    function testFuzz_integrate_monotonicity(uint256 start, uint256 end1, uint256 end2) public view {
+        // Wider range → larger area (since price is always >= 1)
+        start = bound(start, 1e18, 30e18);
+        end1 = bound(end1, start, 60e18);
+        end2 = bound(end2, end1, 90e18);
+
+        SD59x18 area1 = SinLib.integrate(defaultParams, sd(int256(start)), sd(int256(end1)));
+        SD59x18 area2 = SinLib.integrate(defaultParams, sd(int256(start)), sd(int256(end2)));
+
+        assertTrue(area2 >= area1);
+    }
 }
