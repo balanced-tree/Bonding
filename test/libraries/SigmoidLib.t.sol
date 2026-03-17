@@ -512,4 +512,45 @@ contract SigmoidLibTest is BaseTest, Helpers {
 
         assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
     }
+
+    function testFuzz_spotPrice_offset_boundedByBAndMaxValPlusB(uint256 s) public view {
+        // With offset b=3: b < p(s) < maxVal + b → 3 < p(s) < 13
+        s = bound(s, 0, 40e18);
+        SD59x18 price = SigmoidLib.spotPrice(offsetParams, sd(int256(s)));
+        assertTrue(price.unwrap() > 3e18);
+        assertTrue(price.unwrap() < 13e18);
+    }
+
+    function testFuzz_integrate_upperBoundedByMaxValTimesWidth(uint256 from, uint256 to) public view {
+        // Since 0 < p(s) < maxVal for default params, area < maxVal · (to - from)
+        from = bound(from, 0, 15e18);
+        to = bound(to, from + 1e18, 30e18);
+
+        SD59x18 area = SigmoidLib.integrate(defaultParams, sd(int256(from)), sd(int256(to)));
+        int256 upperBound = 10e18 * (int256(to) - int256(from)) / 1e18;
+
+        assertTrue(area.unwrap() > 0);
+        assertTrue(area.unwrap() < upperBound);
+    }
+
+    function testFuzz_integrate_gentle_symmetric(uint256 d) public view {
+        // Symmetric identity with gentle params (k=0.1, s0=50): ∫[50-d, 50+d] = 10·d
+        d = bound(d, 1e18, 50e18);
+        SD59x18 area = SigmoidLib.integrate(gentleParams, sd(int256(50e18 - d)), sd(int256(50e18 + d)));
+        int256 expected = 10e18 * int256(d) / 1e18;
+        assertApproxEqRel(uint256(area.unwrap()), uint256(expected), 0.001e18);
+    }
+
+    function testFuzz_integrate_additivity_offset(uint256 a, uint256 b, uint256 c) public view {
+        // Additivity with offset params: ∫[a,c] = ∫[a,b] + ∫[b,c]
+        a = bound(a, 0, 10e18);
+        b = bound(b, a, 20e18);
+        c = bound(c, b, 30e18);
+
+        SD59x18 whole = SigmoidLib.integrate(offsetParams, sd(int256(a)), sd(int256(c)));
+        SD59x18 part1 = SigmoidLib.integrate(offsetParams, sd(int256(a)), sd(int256(b)));
+        SD59x18 part2 = SigmoidLib.integrate(offsetParams, sd(int256(b)), sd(int256(c)));
+
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
 }
