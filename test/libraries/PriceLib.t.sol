@@ -15,6 +15,13 @@ import { SD59x18, sd } from "@prb-math/SD59x18.sol";
 import { PriceLib } from "../../src/libraries/PriceLib.sol";
 
 contract PriceLibTest is BaseTest, Helpers {
+    // ── External wrappers for revert testing ──────────────────
+    // PriceLib functions are `internal`, so vm.expectRevert needs an external call boundary.
+
+    function exposed_getSpotPrice(Types.PiecewiseSegment[] memory segments, uint256 supply) external pure returns (uint256) {
+        return PriceLib.getSpotPrice(segments, supply);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         SINGLE-SEGMENT ARRAYS
     //////////////////////////////////////////////////////////////*/
@@ -147,13 +154,13 @@ contract PriceLibTest is BaseTest, Helpers {
     function test_getSpotPrice_reverts_supplyOutOfRange() public {
         // supply = 1000e18 is AT the supplyEnd, which is exclusive → out of range
         vm.expectRevert(PriceLib.SUPPLY_OUT_OF_RANGE.selector);
-        PriceLib.getSpotPrice(linearSegments, MAX_SUPPLY);
+        this.exposed_getSpotPrice(linearSegments, MAX_SUPPLY);
     }
 
     function test_getSpotPrice_reverts_supplyBeyondEnd() public {
         // supply well past the last segment
         vm.expectRevert(PriceLib.SUPPLY_OUT_OF_RANGE.selector);
-        PriceLib.getSpotPrice(linearSegments, MAX_SUPPLY + 1e18);
+        this.exposed_getSpotPrice(linearSegments, MAX_SUPPLY + 1e18);
     }
 
     // ── Fuzz: single-segment ─────────────────────────────────
