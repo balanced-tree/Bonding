@@ -284,4 +284,232 @@ contract SigmoidLibTest is BaseTest, Helpers {
         SD59x18 price = SigmoidLib.spotPrice(params, sd(int256(s0)));
         assertEq(price.unwrap(), int256(maxVal) / 2 + int256(b));
     }
+
+    /*//////////////////////////////////////////////////////////////
+        INTEGRATE: ∫p(s)ds = maxVal/k · ln(1 + e^(k·(s-s0))) + b·s
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Symmetric interval identity ───────────────────────────
+    // For b=0: ∫[s0-d, s0+d] = maxVal · d  (sigmoid symmetry: σ(x)+σ(-x) = 1)
+    // For b>0: ∫[s0-d, s0+d] = maxVal · d + b · 2d
+
+    function test_integrate_default_symmetric_zeroToTen() public view {
+        // ∫₀¹⁰ = ∫[5-5, 5+5] = 10 · 5 = 50
+        SD59x18 area = SigmoidLib.integrate(defaultParams, sd(0), sd(10e18));
+        assertApproxEqRel(uint256(area.unwrap()), 50e18, 0.001e18);
+    }
+
+    function test_integrate_default_symmetric_threeToSeven() public view {
+        // ∫₃⁷ = ∫[5-2, 5+2] = 10 · 2 = 20
+        SD59x18 area = SigmoidLib.integrate(defaultParams, sd(3e18), sd(7e18));
+        assertApproxEqRel(uint256(area.unwrap()), 20e18, 0.001e18);
+    }
+
+    function test_integrate_default_symmetric_fourToSix() public view {
+        // ∫₄⁶ = ∫[5-1, 5+1] = 10 · 1 = 10
+        SD59x18 area = SigmoidLib.integrate(defaultParams, sd(4e18), sd(6e18));
+        assertApproxEqRel(uint256(area.unwrap()), 10e18, 0.001e18);
+    }
+
+    function test_integrate_offset_symmetric_zeroToTen() public view {
+        // ∫₀¹⁰ = maxVal · d + b · 2d = 10 · 5 + 3 · 10 = 80
+        SD59x18 area = SigmoidLib.integrate(offsetParams, sd(0), sd(10e18));
+        assertApproxEqRel(uint256(area.unwrap()), 80e18, 0.001e18);
+    }
+
+    function test_integrate_offset_symmetric_threeToSeven() public view {
+        // ∫₃⁷ = 10 · 2 + 3 · 4 = 32
+        SD59x18 area = SigmoidLib.integrate(offsetParams, sd(3e18), sd(7e18));
+        assertApproxEqRel(uint256(area.unwrap()), 32e18, 0.001e18);
+    }
+
+    // ── Non-symmetric intervals ───────────────────────────────
+
+    function test_integrate_default_zeroToFive() public view {
+        // ∫₀⁵ = F(5) - F(0) = 10·ln(2) - 10·ln(1+e^(-5)) ≈ 6.9315 - 0.0672 ≈ 6.8643
+        SD59x18 area = SigmoidLib.integrate(defaultParams, sd(0), sd(5e18));
+        assertApproxEqRel(uint256(area.unwrap()), 6_864299580424148980, 0.01e18);
+    }
+
+    function test_integrate_default_fiveToTen() public view {
+        // ∫₅¹⁰ = ∫₀¹⁰ - ∫₀⁵ ≈ 50 - 6.8643 ≈ 43.1357
+        SD59x18 area = SigmoidLib.integrate(defaultParams, sd(5e18), sd(10e18));
+        assertApproxEqRel(uint256(area.unwrap()), 43_135700419575851020, 0.01e18);
+    }
+
+    function test_integrate_default_belowMidpoint_smallArea() public view {
+        // Far below midpoint, price is small so integral is small
+        // p(0) ≈ 0.067, p(1) ≈ 0.180, so ∫₀¹ ≈ 0.12
+        SD59x18 area = SigmoidLib.integrate(defaultParams, sd(0), sd(1e18));
+        assertTrue(area.unwrap() > 0);
+        assertTrue(area.unwrap() < 0.5e18);
+    }
+
+    // ── Steep: sharp transition ───────────────────────────────
+
+    function test_integrate_steep_symmetric_fourToSix() public view {
+        // ∫₄⁶ = ∫[5-1, 5+1] = 10 · 1 = 10 (same identity, any k)
+        SD59x18 area = SigmoidLib.integrate(steepParams, sd(4e18), sd(6e18));
+        assertApproxEqRel(uint256(area.unwrap()), 10e18, 0.001e18);
+    }
+
+    // ── Gentle: wide spread ───────────────────────────────────
+
+    function test_integrate_gentle_symmetric_zeroToHundred() public view {
+        // ∫₀¹⁰⁰ = ∫[50-50, 50+50] = 10 · 50 = 500
+        SD59x18 area = SigmoidLib.integrate(gentleParams, sd(0), sd(100e18));
+        assertApproxEqRel(uint256(area.unwrap()), 500e18, 0.001e18);
+    }
+
+    function test_integrate_gentle_symmetric_fortyToSixty() public view {
+        // ∫₄₀⁶⁰ = ∫[50-10, 50+10] = 10 · 10 = 100
+        SD59x18 area = SigmoidLib.integrate(gentleParams, sd(40e18), sd(60e18));
+        assertApproxEqRel(uint256(area.unwrap()), 100e18, 0.001e18);
+    }
+
+    // ── Large maxVal ──────────────────────────────────────────
+
+    function test_integrate_largeMaxVal_symmetric_fiveToFifteen() public view {
+        // ∫₅¹⁵ = ∫[10-5, 10+5] = 100 · 5 = 500
+        SD59x18 area = SigmoidLib.integrate(largeMaxValParams, sd(5e18), sd(15e18));
+        assertApproxEqRel(uint256(area.unwrap()), 500e18, 0.001e18);
+    }
+
+    // ── Zero width ────────────────────────────────────────────
+
+    function test_integrate_zeroWidth_returnsZero() public view {
+        assertEq(SigmoidLib.integrate(defaultParams, sd(5e18), sd(5e18)).unwrap(), 0);
+        assertEq(SigmoidLib.integrate(steepParams, sd(5e18), sd(5e18)).unwrap(), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            ADDITIVITY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_integrate_additivity_default() public view {
+        // ∫₀¹⁰ = ∫₀⁵ + ∫₅¹⁰
+        SD59x18 whole = SigmoidLib.integrate(defaultParams, sd(0), sd(10e18));
+        SD59x18 part1 = SigmoidLib.integrate(defaultParams, sd(0), sd(5e18));
+        SD59x18 part2 = SigmoidLib.integrate(defaultParams, sd(5e18), sd(10e18));
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function test_integrate_additivity_offset() public view {
+        // ∫₀¹⁰ = ∫₀³ + ∫₃¹⁰
+        SD59x18 whole = SigmoidLib.integrate(offsetParams, sd(0), sd(10e18));
+        SD59x18 part1 = SigmoidLib.integrate(offsetParams, sd(0), sd(3e18));
+        SD59x18 part2 = SigmoidLib.integrate(offsetParams, sd(3e18), sd(10e18));
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function test_integrate_additivity_threeWaySplit() public view {
+        // ∫₀⁹ = ∫₀³ + ∫₃⁶ + ∫₆⁹
+        SD59x18 whole = SigmoidLib.integrate(defaultParams, sd(0), sd(9e18));
+        SD59x18 p1 = SigmoidLib.integrate(defaultParams, sd(0), sd(3e18));
+        SD59x18 p2 = SigmoidLib.integrate(defaultParams, sd(3e18), sd(6e18));
+        SD59x18 p3 = SigmoidLib.integrate(defaultParams, sd(6e18), sd(9e18));
+        assertEq(whole.unwrap(), (p1 + p2 + p3).unwrap());
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                      SPOT-INTEGRAL CONSISTENCY
+    //////////////////////////////////////////////////////////////*/
+
+    function test_spotIntegralConsistency_default() public view {
+        // For tiny δ, ∫[s, s+δ] ≈ p(s)·δ
+        SD59x18 s = sd(5e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = SigmoidLib.spotPrice(defaultParams, s);
+        SD59x18 area = SigmoidLib.integrate(defaultParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
+    function test_spotIntegralConsistency_offset() public view {
+        SD59x18 s = sd(7e18);
+        SD59x18 delta = sd(0.001e18);
+
+        SD59x18 spot = SigmoidLib.spotPrice(offsetParams, s);
+        SD59x18 area = SigmoidLib.integrate(offsetParams, s, s + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    FUZZ: UNIVERSAL PROPERTIES
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_integrate_additivity(uint256 a, uint256 b, uint256 c) public view {
+        // ∫[a,c] = ∫[a,b] + ∫[b,c]
+        a = bound(a, 0, 10e18);
+        b = bound(b, a, 20e18);
+        c = bound(c, b, 30e18);
+
+        SD59x18 whole = SigmoidLib.integrate(defaultParams, sd(int256(a)), sd(int256(c)));
+        SD59x18 part1 = SigmoidLib.integrate(defaultParams, sd(int256(a)), sd(int256(b)));
+        SD59x18 part2 = SigmoidLib.integrate(defaultParams, sd(int256(b)), sd(int256(c)));
+
+        assertEq(whole.unwrap(), (part1 + part2).unwrap());
+    }
+
+    function testFuzz_integrate_monotonicity(uint256 start, uint256 end1, uint256 end2) public view {
+        // Wider range → larger area (sigmoid is always positive for b=0, maxVal>0)
+        start = bound(start, 0, 10e18);
+        end1 = bound(end1, start, 20e18);
+        end2 = bound(end2, end1, 30e18);
+
+        SD59x18 area1 = SigmoidLib.integrate(defaultParams, sd(int256(start)), sd(int256(end1)));
+        SD59x18 area2 = SigmoidLib.integrate(defaultParams, sd(int256(start)), sd(int256(end2)));
+
+        assertTrue(area2 >= area1);
+    }
+
+    function testFuzz_integrate_nonNegative(uint256 from, uint256 to) public view {
+        // Sigmoid with maxVal>0, b≥0 is always positive, so integral ≥ 0
+        from = bound(from, 0, 20e18);
+        to = bound(to, from + 1e18, 30e18);
+
+        SD59x18 area = SigmoidLib.integrate(defaultParams, sd(int256(from)), sd(int256(to)));
+        assertTrue(area.unwrap() >= 0);
+    }
+
+    function testFuzz_integrate_zeroWidth_returnsZero(uint256 s) public view {
+        s = bound(s, 0, 30e18);
+        assertEq(SigmoidLib.integrate(defaultParams, sd(int256(s)), sd(int256(s))).unwrap(), 0);
+    }
+
+    function testFuzz_integrate_symmetric_equalsMaxValTimesD(uint256 d) public view {
+        // The key sigmoid identity: ∫[s0-d, s0+d] = maxVal · d (for b=0)
+        d = bound(d, 1e18, 5e18); // keep within s0 and exp() domain
+        SD59x18 area = SigmoidLib.integrate(defaultParams, sd(int256(5e18 - d)), sd(int256(5e18 + d)));
+        int256 expected = 10e18 * int256(d) / 1e18; // maxVal · d
+        assertApproxEqRel(uint256(area.unwrap()), uint256(expected), 0.001e18);
+    }
+
+    function testFuzz_integrate_offset_addsBsLinearTerm(uint256 from, uint256 to) public view {
+        // ∫ (sigmoid + b) ds - ∫ sigmoid ds = b · (to - from)
+        from = bound(from, 0, 15e18);
+        to = bound(to, from + 1e18, 30e18);
+
+        SD59x18 areaOffset = SigmoidLib.integrate(offsetParams, sd(int256(from)), sd(int256(to)));
+        SD59x18 areaDefault = SigmoidLib.integrate(defaultParams, sd(int256(from)), sd(int256(to)));
+        SD59x18 bTerm = sd(3e18) * (sd(int256(to)) - sd(int256(from)));
+
+        assertEq(areaOffset.unwrap(), (areaDefault + bTerm).unwrap());
+    }
+
+    function testFuzz_spotIntegralConsistency(uint256 s) public view {
+        // Fundamental theorem: ∫[s, s+δ] ≈ p(s)·δ for tiny δ
+        s = bound(s, 0, 30e18);
+        SD59x18 delta = sd(0.0001e18);
+
+        SD59x18 spot = SigmoidLib.spotPrice(defaultParams, sd(int256(s)));
+        SD59x18 area = SigmoidLib.integrate(defaultParams, sd(int256(s)), sd(int256(s)) + delta);
+        SD59x18 approx = spot * delta;
+
+        assertApproxEqRel(uint256(area.unwrap()), uint256(approx.unwrap()), 0.001e18);
+    }
 }
