@@ -187,4 +187,133 @@ contract PriceLibTest is BaseTest, Helpers {
         uint256 p2 = PriceLib.getSpotPrice(linearSegments, s2);
         assertTrue(p2 >= p1);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    SPOT PRICE: MULTI-SEGMENT ROUTING
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Two-segment: LINEAR [0, 500) → PARABOLIC [500, 1000) ─
+
+    function test_getSpotPrice_linearParabolic_inFirstSegment() public view {
+        // supply=250 is in LINEAR → p(250) = 250
+        uint256 price = PriceLib.getSpotPrice(linearParabolicSegments, 250e18);
+        assertEq(price, 250e18);
+    }
+
+    function test_getSpotPrice_linearParabolic_justBelowBoundary() public view {
+        // supply=499 is still in LINEAR (< 500) → p(499) = 499
+        uint256 price = PriceLib.getSpotPrice(linearParabolicSegments, 499e18);
+        assertEq(price, 499e18);
+    }
+
+    function test_getSpotPrice_linearParabolic_atBoundary() public view {
+        // supply=500 routes to PARABOLIC (>= 500 && < 1000) → p(500) = 500² = 250000
+        uint256 price = PriceLib.getSpotPrice(linearParabolicSegments, BOUNDARY);
+        assertEq(price, 250_000e18);
+    }
+
+    function test_getSpotPrice_linearParabolic_inSecondSegment() public view {
+        // supply=600 is in PARABOLIC → p(600) = 600² = 360000
+        uint256 price = PriceLib.getSpotPrice(linearParabolicSegments, 600e18);
+        assertEq(price, 360_000e18);
+    }
+
+    function test_getSpotPrice_linearParabolic_priceJumpsAtBoundary() public view {
+        // Price is discontinuous at boundary: LINEAR p(499)=499, PARABOLIC p(500)=250000
+        uint256 pBefore = PriceLib.getSpotPrice(linearParabolicSegments, 499e18);
+        uint256 pAfter = PriceLib.getSpotPrice(linearParabolicSegments, BOUNDARY);
+        assertTrue(pAfter > pBefore);
+    }
+
+    // ── Two-segment: LINEAR [0, 500) → LN [500, 1000) ────────
+
+    function test_getSpotPrice_linearLn_inFirstSegment() public view {
+        // supply=100 is in LINEAR → p(100) = 100
+        uint256 price = PriceLib.getSpotPrice(linearLnSegments, 100e18);
+        assertEq(price, 100e18);
+    }
+
+    function test_getSpotPrice_linearLn_atBoundary() public view {
+        // supply=500 routes to LN → p(500) = ln(500 + 1) = ln(501) ≈ 6.2166...
+        uint256 price = PriceLib.getSpotPrice(linearLnSegments, BOUNDARY);
+        assertApproxEqRel(price, 6_216606191559280000, 0.01e18);
+    }
+
+    function test_getSpotPrice_linearLn_inSecondSegment() public view {
+        // supply=750 in LN → p(750) = ln(750 + 1) = ln(751) ≈ 6.6214...
+        uint256 price = PriceLib.getSpotPrice(linearLnSegments, 750e18);
+        assertApproxEqRel(price, 6_621406197964908000, 0.01e18);
+    }
+
+    // ── Three-segment: LINEAR [0,200) → PARABOLIC [200,600) → EXP [600,700) ──
+
+    function test_getSpotPrice_threeSegments_inLinear() public view {
+        // supply=100 in LINEAR → p(100) = 100
+        uint256 price = PriceLib.getSpotPrice(threeSegments, 100e18);
+        assertEq(price, 100e18);
+    }
+
+    function test_getSpotPrice_threeSegments_atFirstBoundary() public view {
+        // supply=200 routes to PARABOLIC → p(200) = 200² = 40000
+        uint256 price = PriceLib.getSpotPrice(threeSegments, 200e18);
+        assertEq(price, 40_000e18);
+    }
+
+    function test_getSpotPrice_threeSegments_inParabolic() public view {
+        // supply=400 in PARABOLIC → p(400) = 400² = 160000
+        uint256 price = PriceLib.getSpotPrice(threeSegments, 400e18);
+        assertEq(price, 160_000e18);
+    }
+
+    function test_getSpotPrice_threeSegments_atSecondBoundary() public view {
+        // supply=600 routes to EXPONENTIAL → p(600) = e^(0.01·600) = e^6 ≈ 403.429...
+        uint256 price = PriceLib.getSpotPrice(threeSegments, 600e18);
+        assertApproxEqRel(price, 403_428793492735000000, 0.01e18);
+    }
+
+    function test_getSpotPrice_threeSegments_inExponential() public view {
+        // supply=650 in EXPONENTIAL → p(650) = e^(0.01·650) = e^6.5 ≈ 665.142...
+        uint256 price = PriceLib.getSpotPrice(threeSegments, 650e18);
+        assertApproxEqRel(price, 665_141633044576000000, 0.01e18);
+    }
+
+    function test_getSpotPrice_threeSegments_nearEnd() public view {
+        // supply=699 in EXPONENTIAL → p(699) = e^(0.01·699) = e^6.99 ≈ 1089.62...
+        uint256 price = PriceLib.getSpotPrice(threeSegments, 699e18);
+        assertApproxEqRel(price, 1089_632897982380000000, 0.01e18);
+    }
+
+    // ── Multi-segment reverts ─────────────────────────────────
+
+    function test_getSpotPrice_linearParabolic_reverts_beyondEnd() public {
+        vm.expectRevert(PriceLib.SUPPLY_OUT_OF_RANGE.selector);
+        this.exposed_getSpotPrice(linearParabolicSegments, MAX_SUPPLY);
+    }
+
+    function test_getSpotPrice_threeSegments_reverts_beyondEnd() public {
+        // threeSegments ends at 700e18
+        vm.expectRevert(PriceLib.SUPPLY_OUT_OF_RANGE.selector);
+        this.exposed_getSpotPrice(threeSegments, 700e18);
+    }
+
+    // ── Multi-segment fuzz ────────────────────────────────────
+
+    function testFuzz_getSpotPrice_linearParabolic_routesCorrectly(uint256 s) public view {
+        // In [0, 500): should match LINEAR p(s) = s
+        // In [500, 1000): should match PARABOLIC p(s) = s²
+        s = bound(s, 0, 999e18);
+        uint256 price = PriceLib.getSpotPrice(linearParabolicSegments, s);
+        if (s < BOUNDARY) {
+            assertEq(price, s);
+        } else {
+            assertEq(price, s * s / 1e18);
+        }
+    }
+
+    function testFuzz_getSpotPrice_threeSegments_alwaysRoutes(uint256 s) public view {
+        // Any supply in [0, 700) should return a price without reverting
+        s = bound(s, 0, 699e18);
+        uint256 price = PriceLib.getSpotPrice(threeSegments, s);
+        assertTrue(price >= 0); // just verifying no revert
+    }
 }
