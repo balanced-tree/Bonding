@@ -70,8 +70,114 @@ contract PriceLibTest is BaseTest, Helpers {
         linearLnSegments.push(_createLnSegment(BOUNDARY, MAX_SUPPLY));
 
         // ── Three-segment: LINEAR → PARABOLIC → EXPONENTIAL ─────
+        // Note: exponential uses k=0.01 to keep exp(k·s) within PRBMath domain at s=700
         threeSegments.push(_createLinearSegment(0, 200e18));
         threeSegments.push(_createParabolicSegment(200e18, 600e18));
-        threeSegments.push(_createExponentialSegment(600e18, 700e18));
+        threeSegments.push(_createExponentialSegment(600e18, 700e18, 1e18, 0.01e18, 0));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    SPOT PRICE: SINGLE-SEGMENT ROUTING
+    //////////////////////////////////////////////////////////////*/
+
+    // ── LINEAR p(s) = s ───────────────────────────────────────
+
+    function test_getSpotPrice_linear_atZero() public view {
+        // p(0) = 0
+        uint256 price = PriceLib.getSpotPrice(linearSegments, 0);
+        assertEq(price, 0);
+    }
+
+    function test_getSpotPrice_linear_atOne() public view {
+        // p(1) = 1
+        uint256 price = PriceLib.getSpotPrice(linearSegments, 1e18);
+        assertEq(price, 1e18);
+    }
+
+    function test_getSpotPrice_linear_atFifty() public view {
+        // p(50) = 50
+        uint256 price = PriceLib.getSpotPrice(linearSegments, 50e18);
+        assertEq(price, 50e18);
+    }
+
+    function test_getSpotPrice_linear_atFiveHundred() public view {
+        // p(500) = 500
+        uint256 price = PriceLib.getSpotPrice(linearSegments, 500e18);
+        assertEq(price, 500e18);
+    }
+
+    // ── PARABOLIC p(s) = s² ──────────────────────────────────
+
+    function test_getSpotPrice_parabolic_atZero() public view {
+        // p(0) = 0
+        uint256 price = PriceLib.getSpotPrice(parabolicSegments, 0);
+        assertEq(price, 0);
+    }
+
+    function test_getSpotPrice_parabolic_atOne() public view {
+        // p(1) = 1
+        uint256 price = PriceLib.getSpotPrice(parabolicSegments, 1e18);
+        assertEq(price, 1e18);
+    }
+
+    function test_getSpotPrice_parabolic_atTen() public view {
+        // p(10) = 100
+        uint256 price = PriceLib.getSpotPrice(parabolicSegments, 10e18);
+        assertEq(price, 100e18);
+    }
+
+    function test_getSpotPrice_parabolic_atHundred() public view {
+        // p(100) = 10000
+        uint256 price = PriceLib.getSpotPrice(parabolicSegments, 100e18);
+        assertEq(price, 10_000e18);
+    }
+
+    // ── Relational: parabolic grows faster than linear ────────
+
+    function test_getSpotPrice_parabolicGrowsFasterThanLinear() public view {
+        // For s > 1: s² > s
+        uint256 supply = 50e18;
+        uint256 linearPrice = PriceLib.getSpotPrice(linearSegments, supply);
+        uint256 parabolicPrice = PriceLib.getSpotPrice(parabolicSegments, supply);
+        assertTrue(parabolicPrice > linearPrice);
+    }
+
+    // ── Reverts ───────────────────────────────────────────────
+
+    function test_getSpotPrice_reverts_supplyOutOfRange() public {
+        // supply = 1000e18 is AT the supplyEnd, which is exclusive → out of range
+        vm.expectRevert(PriceLib.SUPPLY_OUT_OF_RANGE.selector);
+        PriceLib.getSpotPrice(linearSegments, MAX_SUPPLY);
+    }
+
+    function test_getSpotPrice_reverts_supplyBeyondEnd() public {
+        // supply well past the last segment
+        vm.expectRevert(PriceLib.SUPPLY_OUT_OF_RANGE.selector);
+        PriceLib.getSpotPrice(linearSegments, MAX_SUPPLY + 1e18);
+    }
+
+    // ── Fuzz: single-segment ─────────────────────────────────
+
+    function testFuzz_getSpotPrice_linear_equalsSupply(uint256 s) public view {
+        // p(s) = s for default linear params
+        s = bound(s, 0, MAX_SUPPLY - 1);
+        uint256 price = PriceLib.getSpotPrice(linearSegments, s);
+        assertEq(price, s);
+    }
+
+    function testFuzz_getSpotPrice_parabolic_equalsSquare(uint256 s) public view {
+        // p(s) = s² for default parabolic params
+        s = bound(s, 0, MAX_SUPPLY - 1);
+        uint256 price = PriceLib.getSpotPrice(parabolicSegments, s);
+        uint256 expected = s * s / 1e18;
+        assertEq(price, expected);
+    }
+
+    function testFuzz_getSpotPrice_linear_monotonicity(uint256 s1, uint256 s2) public view {
+        s1 = bound(s1, 0, 499e18);
+        s2 = bound(s2, s1, 999e18);
+        uint256 p1 = PriceLib.getSpotPrice(linearSegments, s1);
+        uint256 p2 = PriceLib.getSpotPrice(linearSegments, s2);
+        assertTrue(p2 >= p1);
     }
 }
