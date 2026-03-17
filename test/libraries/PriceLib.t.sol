@@ -298,6 +298,115 @@ contract PriceLibTest is BaseTest, Helpers {
 
     // ── Multi-segment fuzz ────────────────────────────────────
 
+    /*//////////////////////////////////////////////////////////////
+                    SPOT PRICE: BOUNDARY EDGE CASES
+    //////////////////////////////////////////////////////////////*/
+
+    // ── 1-wei precision at two-segment boundary ───────────────
+
+    function test_getSpotPrice_linearParabolic_oneWeiBelow() public view {
+        // supply = 500e18 - 1 (one wei below boundary) → still LINEAR
+        uint256 s = BOUNDARY - 1;
+        uint256 price = PriceLib.getSpotPrice(linearParabolicSegments, s);
+        // LINEAR: p(s) = s → should equal s
+        assertEq(price, s);
+    }
+
+    function test_getSpotPrice_linearParabolic_exactBoundary() public view {
+        // supply = 500e18 (exact boundary) → routes to PARABOLIC
+        uint256 price = PriceLib.getSpotPrice(linearParabolicSegments, BOUNDARY);
+        // PARABOLIC: p(500) = 500² = 250000 — confirms >= check routes to segment 2
+        assertEq(price, 250_000e18);
+    }
+
+    function test_getSpotPrice_linearParabolic_oneWeiAbove() public view {
+        // supply = 500e18 + 1 (one wei above boundary) → PARABOLIC
+        uint256 s = BOUNDARY + 1;
+        uint256 price = PriceLib.getSpotPrice(linearParabolicSegments, s);
+        // PARABOLIC: p(s) = s² — should be very close to p(500)
+        assertEq(price, s * s / 1e18);
+    }
+
+    // ── First and last valid supply ───────────────────────────
+
+    function test_getSpotPrice_linearParabolic_atZero() public view {
+        // supply=0 is the first valid point in the first segment
+        uint256 price = PriceLib.getSpotPrice(linearParabolicSegments, 0);
+        assertEq(price, 0);
+    }
+
+    function test_getSpotPrice_linearParabolic_lastValidSupply() public view {
+        // supply = 1000e18 - 1 is the last valid point (supplyEnd is exclusive)
+        uint256 s = MAX_SUPPLY - 1;
+        uint256 price = PriceLib.getSpotPrice(linearParabolicSegments, s);
+        assertEq(price, s * s / 1e18);
+    }
+
+    // ── Three-segment 1-wei boundaries ────────────────────────
+
+    function test_getSpotPrice_threeSegments_oneWeiBeforeFirstBoundary() public view {
+        // supply = 200e18 - 1 → still LINEAR
+        uint256 s = 200e18 - 1;
+        uint256 price = PriceLib.getSpotPrice(threeSegments, s);
+        // LINEAR: p(s) = s
+        assertEq(price, s);
+    }
+
+    function test_getSpotPrice_threeSegments_oneWeiAfterFirstBoundary() public view {
+        // supply = 200e18 + 1 → PARABOLIC
+        uint256 s = 200e18 + 1;
+        uint256 price = PriceLib.getSpotPrice(threeSegments, s);
+        // PARABOLIC: p(s) = s²
+        assertEq(price, s * s / 1e18);
+    }
+
+    function test_getSpotPrice_threeSegments_oneWeiBeforeSecondBoundary() public view {
+        // supply = 600e18 - 1 → still PARABOLIC
+        uint256 s = 600e18 - 1;
+        uint256 price = PriceLib.getSpotPrice(threeSegments, s);
+        // PARABOLIC: p(s) = s²
+        assertEq(price, s * s / 1e18);
+    }
+
+    function test_getSpotPrice_threeSegments_oneWeiAfterSecondBoundary() public view {
+        // supply = 600e18 + 1 → EXPONENTIAL
+        uint256 s = 600e18 + 1;
+        uint256 price = PriceLib.getSpotPrice(threeSegments, s);
+        // Should be very close to p(600) since 1 wei difference is negligible
+        uint256 priceAtBoundary = PriceLib.getSpotPrice(threeSegments, 600e18);
+        assertApproxEqRel(price, priceAtBoundary, 0.0001e18);
+    }
+
+    function test_getSpotPrice_threeSegments_firstValidSupply() public view {
+        // supply=0 is valid (first segment starts at 0)
+        uint256 price = PriceLib.getSpotPrice(threeSegments, 0);
+        assertEq(price, 0);
+    }
+
+    function test_getSpotPrice_threeSegments_lastValidSupply() public view {
+        // supply = 700e18 - 1 → last valid point in EXPONENTIAL
+        uint256 s = 700e18 - 1;
+        uint256 price = PriceLib.getSpotPrice(threeSegments, s);
+        // Should return without reverting and be close to p(700)
+        assertTrue(price > 0);
+    }
+
+    // ── Exclusive end boundary reverts ─────────────────────────
+
+    function test_getSpotPrice_threeSegments_reverts_atExactEnd() public {
+        // 700e18 is supplyEnd of last segment → exclusive, reverts
+        vm.expectRevert(PriceLib.SUPPLY_OUT_OF_RANGE.selector);
+        this.exposed_getSpotPrice(threeSegments, 700e18);
+    }
+
+    function test_getSpotPrice_linearParabolic_reverts_atExactEnd() public {
+        // 1000e18 is supplyEnd → exclusive
+        vm.expectRevert(PriceLib.SUPPLY_OUT_OF_RANGE.selector);
+        this.exposed_getSpotPrice(linearParabolicSegments, MAX_SUPPLY);
+    }
+
+    // ── Multi-segment fuzz ────────────────────────────────────
+
     function testFuzz_getSpotPrice_linearParabolic_routesCorrectly(uint256 s) public view {
         // In [0, 500): should match LINEAR p(s) = s
         // In [500, 1000): should match PARABOLIC p(s) = s²
