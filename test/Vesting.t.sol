@@ -5,6 +5,7 @@ pragma solidity 0.8.30;
 import { BaseTest } from "./BaseTest.t.sol";
 
 // Contracts
+import { MockERC20 } from "./MockERC20.sol";
 import { Vesting } from "../src/contracts/Vesting.sol";
 import { IVesting } from "../src/interfaces/IVesting.sol";
 
@@ -16,22 +17,30 @@ contract VestingTest is BaseTest {
     using Clones for address;
 
     Vesting public vesting;
-    address public mockToken;
+    MockERC20 public vestingToken;
     address public mockCurve;
 
     uint256 public constant CLIFF = 30 days;
     uint256 public constant DURATION = 365 days;
+    uint256 public constant VESTING_AMOUNT = 1000e18;
 
     function setUp() public override {
         super.setUp();
 
-        mockToken = makeAddr("mockToken");
         mockCurve = makeAddr("mockCurve");
+        vestingToken = new MockERC20("Vesting Token", "VEST", 18);
 
         // Deploy as a clone and initialize
         address clone = address(vestingImplementation).clone();
         vesting = Vesting(clone);
-        vesting.initialize(mockToken, mockCurve, CLIFF, DURATION);
+        vesting.initialize(address(vestingToken), mockCurve, CLIFF, DURATION);
+    }
+
+    /// @dev Helper: add vesting for a beneficiary and fund the contract
+    function _addVestingAndFund(address beneficiary, uint256 amount) internal {
+        vm.prank(mockCurve);
+        vesting.addVesting(beneficiary, amount);
+        deal(address(vestingToken), address(vesting), amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -39,7 +48,7 @@ contract VestingTest is BaseTest {
     //////////////////////////////////////////////////////////////*/
 
     function test_initialize_setsToken() public view {
-        assertEq(vesting.token(), mockToken);
+        assertEq(vesting.token(), address(vestingToken));
     }
 
     function test_initialize_setsCurve() public view {
@@ -58,7 +67,7 @@ contract VestingTest is BaseTest {
         // A vesting schedule with no cliff is valid
         address clone = address(vestingImplementation).clone();
         Vesting v = Vesting(clone);
-        v.initialize(mockToken, mockCurve, 0, DURATION);
+        v.initialize(address(vestingToken), mockCurve, 0, DURATION);
         assertEq(v.cliffDuration(), 0);
     }
 
@@ -77,24 +86,24 @@ contract VestingTest is BaseTest {
         address clone = address(vestingImplementation).clone();
         Vesting v = Vesting(clone);
         vm.expectRevert(IVesting.ZERO_ADDRESS.selector);
-        v.initialize(mockToken, address(0), CLIFF, DURATION);
+        v.initialize(address(vestingToken), address(0), CLIFF, DURATION);
     }
 
     function test_initialize_reverts_zeroDuration() public {
         address clone = address(vestingImplementation).clone();
         Vesting v = Vesting(clone);
         vm.expectRevert(IVesting.INVALID_DURATION.selector);
-        v.initialize(mockToken, mockCurve, CLIFF, 0);
+        v.initialize(address(vestingToken), mockCurve, CLIFF, 0);
     }
 
     function test_initialize_reverts_cannotReinitialize() public {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        vesting.initialize(mockToken, mockCurve, CLIFF, DURATION);
+        vesting.initialize(address(vestingToken), mockCurve, CLIFF, DURATION);
     }
 
     function test_initialize_reverts_implementationLocked() public {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        vestingImplementation.initialize(mockToken, mockCurve, CLIFF, DURATION);
+        vestingImplementation.initialize(address(vestingToken), mockCurve, CLIFF, DURATION);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -106,7 +115,7 @@ contract VestingTest is BaseTest {
         Vesting v = Vesting(clone);
         vm.expectEmit(true, false, false, false);
         emit IVesting.Initialized(mockCurve);
-        v.initialize(mockToken, mockCurve, CLIFF, DURATION);
+        v.initialize(address(vestingToken), mockCurve, CLIFF, DURATION);
     }
 
     /*//////////////////////////////////////////////////////////////
