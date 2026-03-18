@@ -220,4 +220,232 @@ contract VestingTest is BaseTest {
         vesting.addVesting(alice, 500e18);
         vm.stopPrank();
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    CLAIMABLE: VIEW FUNCTION
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Before cliff ────────────────────────────────────────────
+
+    function test_claimable_beforeCliff_isZero() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // Warp to just before cliff ends
+        vm.warp(block.timestamp + CLIFF - 1);
+        assertEq(vesting.claimable(alice), 0);
+    }
+
+    function test_claimable_atExactCliff_isZero() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // elapsed == cliff → vestedElapsed = 0 → nothing unlocked yet
+        vm.warp(block.timestamp + CLIFF);
+        assertEq(vesting.claimable(alice), 0);
+    }
+
+    // ── After cliff, partial vesting ────────────────────────────
+
+    function test_claimable_oneSecondAfterCliff() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // 1 second of vesting: 1000e18 * 1 / 365 days
+        vm.warp(block.timestamp + CLIFF + 1);
+        uint256 expected = (VESTING_AMOUNT * 1) / DURATION;
+        assertEq(vesting.claimable(alice), expected);
+    }
+
+    function test_claimable_halfwayThroughVesting() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // Halfway: 1000e18 * (duration/2) / duration = 500e18
+        vm.warp(block.timestamp + CLIFF + DURATION / 2);
+        assertEq(vesting.claimable(alice), VESTING_AMOUNT / 2);
+    }
+
+    // ── Fully vested ────────────────────────────────────────────
+
+    function test_claimable_fullyVested() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        vm.warp(block.timestamp + CLIFF + DURATION);
+        assertEq(vesting.claimable(alice), VESTING_AMOUNT);
+    }
+
+    function test_claimable_wellPastVesting() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // Way past vesting — still capped at totalAmount
+        vm.warp(block.timestamp + CLIFF + DURATION * 10);
+        assertEq(vesting.claimable(alice), VESTING_AMOUNT);
+    }
+
+    // ── No schedule ─────────────────────────────────────────────
+
+    function test_claimable_noSchedule_isZero() public view {
+        assertEq(vesting.claimable(bob), 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          CLAIM
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Successful claim ────────────────────────────────────────
+
+    function test_claim_transfersTokens() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // Fully vested
+        vm.warp(block.timestamp + CLIFF + DURATION);
+
+        uint256 balanceBefore = vestingToken.balanceOf(alice);
+        vm.prank(alice);
+        vesting.claim();
+        uint256 balanceAfter = vestingToken.balanceOf(alice);
+
+        assertEq(balanceAfter - balanceBefore, VESTING_AMOUNT);
+    }
+
+    function test_claim_updatesClaimed() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        vm.warp(block.timestamp + CLIFF + DURATION);
+        vm.prank(alice);
+        vesting.claim();
+
+        (,, uint256 claimed) = vesting.schedules(alice);
+        assertEq(claimed, VESTING_AMOUNT);
+    }
+
+    function test_claim_partialVesting() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // Halfway through vesting → 500e18 claimable
+        vm.warp(block.timestamp + CLIFF + DURATION / 2);
+
+        vm.prank(alice);
+        vesting.claim();
+
+        uint256 balance = vestingToken.balanceOf(alice);
+        assertEq(balance, VESTING_AMOUNT / 2);
+    }
+
+    // ── Multiple claims over time ───────────────────────────────
+
+    function test_claim_twoPartialClaims() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // First claim at 25% vesting
+        vm.warp(block.timestamp + CLIFF + DURATION / 4);
+        vm.prank(alice);
+        vesting.claim();
+        uint256 firstClaim = vestingToken.balanceOf(alice);
+        assertEq(firstClaim, VESTING_AMOUNT / 4);
+
+        // Second claim at 75% vesting
+        vm.warp(block.timestamp + DURATION / 2);
+        vm.prank(alice);
+        vesting.claim();
+        uint256 totalClaimed = vestingToken.balanceOf(alice);
+        // 75% of total - 25% already claimed = 50% more
+        assertEq(totalClaimed, (VESTING_AMOUNT * 3) / 4);
+    }
+
+    function test_claim_thenClaimRemainder() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // Claim halfway
+        vm.warp(block.timestamp + CLIFF + DURATION / 2);
+        vm.prank(alice);
+        vesting.claim();
+
+        // Claim remainder after full vesting
+        vm.warp(block.timestamp + DURATION);
+        vm.prank(alice);
+        vesting.claim();
+
+        assertEq(vestingToken.balanceOf(alice), VESTING_AMOUNT);
+    }
+
+    // ── Reverts ─────────────────────────────────────────────────
+
+    function test_claim_reverts_beforeCliff() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        vm.warp(block.timestamp + CLIFF - 1);
+        vm.prank(alice);
+        vm.expectRevert(IVesting.NOTHING_TO_CLAIM.selector);
+        vesting.claim();
+    }
+
+    function test_claim_reverts_noSchedule() public {
+        vm.prank(bob);
+        vm.expectRevert(IVesting.NOTHING_TO_CLAIM.selector);
+        vesting.claim();
+    }
+
+    function test_claim_reverts_alreadyClaimedAll() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // Fully vested, claim everything
+        vm.warp(block.timestamp + CLIFF + DURATION);
+        vm.prank(alice);
+        vesting.claim();
+
+        // Try to claim again — nothing left
+        vm.prank(alice);
+        vm.expectRevert(IVesting.NOTHING_TO_CLAIM.selector);
+        vesting.claim();
+    }
+
+    function test_claim_reverts_nothingNewSinceLastClaim() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // Claim at halfway
+        vm.warp(block.timestamp + CLIFF + DURATION / 2);
+        vm.prank(alice);
+        vesting.claim();
+
+        // Try to claim again immediately — no new tokens vested
+        vm.prank(alice);
+        vm.expectRevert(IVesting.NOTHING_TO_CLAIM.selector);
+        vesting.claim();
+    }
+
+    // ── Events ──────────────────────────────────────────────────
+
+    function test_claim_emitsEvent() public {
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        vm.warp(block.timestamp + CLIFF + DURATION);
+
+        vm.prank(alice);
+        vm.expectEmit(true, false, false, true);
+        emit IVesting.Claimed(alice, VESTING_AMOUNT);
+        vesting.claim();
+    }
+
+    // ── Incremental vesting + claim interaction ─────────────────
+
+    function test_claim_afterIncrementalAddVesting() public {
+        // First allocation
+        vm.warp(100);
+        vm.prank(mockCurve);
+        vesting.addVesting(alice, 600e18);
+
+        // Second allocation later (startTime stays at 100)
+        vm.warp(200);
+        vm.prank(mockCurve);
+        vesting.addVesting(alice, 400e18);
+
+        // Fund the contract with total amount
+        deal(address(vestingToken), address(vesting), 1000e18);
+
+        // Fully vested from startTime=100
+        vm.warp(100 + CLIFF + DURATION);
+        vm.prank(alice);
+        vesting.claim();
+
+        // Should receive full 1000e18 (both allocations)
+        assertEq(vestingToken.balanceOf(alice), 1000e18);
+    }
 }
