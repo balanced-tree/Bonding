@@ -910,7 +910,10 @@ contract PriceLibTest is BaseTest, Helpers {
         assertTrue(c2 >= c1);
     }
 
-    function testFuzz_calculateSellCollateral_linearParabolic_matchesIntegrate(uint256 supply, uint256 tokens) public view {
+    function testFuzz_calculateSellCollateral_linearParabolic_matchesIntegrate(
+        uint256 supply,
+        uint256 tokens
+    ) public view {
         supply = bound(supply, 1e18, 999e18);
         tokens = bound(tokens, 1e18, supply);
         uint256 sellResult = PriceLib.calculateSellCollateral(linearParabolicSegments, supply, tokens);
