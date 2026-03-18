@@ -448,4 +448,161 @@ contract VestingTest is BaseTest {
         // Should receive full 1000e18 (both allocations)
         assertEq(vestingToken.balanceOf(alice), 1000e18);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                          FUZZ TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Claimable is always ≤ totalAmount ────────────────────────
+
+    function testFuzz_claimable_neverExceedsTotal(
+        uint256 amount,
+        uint256 elapsed
+    ) public {
+        amount = bound(amount, 1e18, 1_000_000e18);
+        elapsed = bound(elapsed, 0, CLIFF + DURATION * 2);
+
+        _addVestingAndFund(alice, amount);
+        vm.warp(block.timestamp + elapsed);
+
+        uint256 claimableAmt = vesting.claimable(alice);
+        assertTrue(claimableAmt <= amount);
+    }
+
+    // ── Claimable is zero before cliff ──────────────────────────
+
+    function testFuzz_claimable_zeroBeforeCliff(uint256 elapsed) public {
+        elapsed = bound(elapsed, 0, CLIFF);
+
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+        vm.warp(block.timestamp + elapsed);
+
+        assertEq(vesting.claimable(alice), 0);
+    }
+
+    // ── Claimable monotonically increases with time ─────────────
+
+    function testFuzz_claimable_monotonicallyIncreases(
+        uint256 t1,
+        uint256 t2
+    ) public {
+        t1 = bound(t1, CLIFF, CLIFF + DURATION);
+        t2 = bound(t2, t1, CLIFF + DURATION);
+
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        vm.warp(block.timestamp + t1);
+        uint256 c1 = vesting.claimable(alice);
+
+        vm.warp(block.timestamp + (t2 - t1));
+        uint256 c2 = vesting.claimable(alice);
+
+        assertTrue(c2 >= c1);
+    }
+
+    // ── Fully vested after cliff + duration ─────────────────────
+
+    function testFuzz_claimable_fullyVestedAfterDuration(
+        uint256 amount,
+        uint256 extra
+    ) public {
+        amount = bound(amount, 1e18, 1_000_000e18);
+        extra = bound(extra, 0, 365 days);
+
+        _addVestingAndFund(alice, amount);
+        vm.warp(block.timestamp + CLIFF + DURATION + extra);
+
+        assertEq(vesting.claimable(alice), amount);
+    }
+
+    // ── Linear proportionality: claimable ≈ total * elapsed / duration
+
+    function testFuzz_claimable_linearProportionality(
+        uint256 vestedElapsed
+    ) public {
+        vestedElapsed = bound(vestedElapsed, 1, DURATION - 1);
+
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+        vm.warp(block.timestamp + CLIFF + vestedElapsed);
+
+        uint256 expected = (VESTING_AMOUNT * vestedElapsed) / DURATION;
+        assertEq(vesting.claimable(alice), expected);
+    }
+
+    // ── Claim drains exactly claimable amount ───────────────────
+
+    function testFuzz_claim_drainsExactClaimable(
+        uint256 elapsed
+    ) public {
+        elapsed = bound(elapsed, CLIFF + 1, CLIFF + DURATION);
+
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+        vm.warp(block.timestamp + elapsed);
+
+        uint256 expectedClaim = vesting.claimable(alice);
+        vm.assume(expectedClaim > 0);
+
+        vm.prank(alice);
+        vesting.claim();
+
+        assertEq(vestingToken.balanceOf(alice), expectedClaim);
+        assertEq(vesting.claimable(alice), 0);
+    }
+
+    // ── Multiple claims sum to total ────────────────────────────
+
+    function testFuzz_claim_multipleClaims_sumToTotal(
+        uint256 t1,
+        uint256 t2
+    ) public {
+        t1 = bound(t1, CLIFF + 1, CLIFF + DURATION / 2);
+        t2 = bound(t2, CLIFF + DURATION / 2 + 1, CLIFF + DURATION);
+
+        _addVestingAndFund(alice, VESTING_AMOUNT);
+
+        // First claim
+        vm.warp(block.timestamp + t1);
+        uint256 c1 = vesting.claimable(alice);
+        if (c1 > 0) {
+            vm.prank(alice);
+            vesting.claim();
+        }
+
+        // Second claim
+        vm.warp(block.timestamp + (t2 - t1));
+        uint256 c2 = vesting.claimable(alice);
+        if (c2 > 0) {
+            vm.prank(alice);
+            vesting.claim();
+        }
+
+        // Final claim after full vesting
+        vm.warp(block.timestamp + CLIFF + DURATION);
+        uint256 c3 = vesting.claimable(alice);
+        if (c3 > 0) {
+            vm.prank(alice);
+            vesting.claim();
+        }
+
+        // Total claimed should equal full amount
+        assertEq(vestingToken.balanceOf(alice), VESTING_AMOUNT);
+    }
+
+    // ── Claim never transfers more than balance ─────────────────
+
+    function testFuzz_claim_neverExceedsContractBalance(
+        uint256 amount,
+        uint256 elapsed
+    ) public {
+        amount = bound(amount, 1e18, 1_000_000e18);
+        elapsed = bound(elapsed, CLIFF + 1, CLIFF + DURATION);
+
+        _addVestingAndFund(alice, amount);
+        vm.warp(block.timestamp + elapsed);
+
+        uint256 contractBalBefore = vestingToken.balanceOf(address(vesting));
+        uint256 claimableAmt = vesting.claimable(alice);
+
+        assertTrue(claimableAmt <= contractBalBefore);
+    }
 }
