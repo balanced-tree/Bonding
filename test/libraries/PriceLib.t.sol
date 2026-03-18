@@ -22,6 +22,14 @@ contract PriceLibTest is BaseTest, Helpers {
         return PriceLib.getSpotPrice(segments, supply);
     }
 
+    function exposed_calculateBuyTokens(
+        Types.PiecewiseSegment[] memory segments,
+        uint256 currentSupply,
+        uint256 collateralIn
+    ) external pure returns (uint256) {
+        return PriceLib.calculateBuyTokens(segments, currentSupply, collateralIn);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         SINGLE-SEGMENT ARRAYS
     //////////////////////////////////////////////////////////////*/
