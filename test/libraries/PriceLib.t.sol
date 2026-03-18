@@ -920,4 +920,152 @@ contract PriceLibTest is BaseTest, Helpers {
         uint256 integrateResult = PriceLib.integrate(linearParabolicSegments, supply - tokens, supply);
         assertEq(sellResult, integrateResult);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    BUY-SELL ROUND-TRIP INVARIANTS
+    //////////////////////////////////////////////////////////////*/
+
+    // ── sell(buy(C)) ≤ C — no free money ────────────────────────
+
+    function test_roundTrip_linear_sellAfterBuy_noProfit() public view {
+        // Buy tokens with 5000e18, then sell them all back
+        uint256 collateralIn = 5_000e18;
+        uint256 tokensBought = PriceLib.calculateBuyTokens(linearSegments, 0, collateralIn);
+        uint256 collateralBack = PriceLib.calculateSellCollateral(
+            linearSegments, tokensBought, tokensBought
+        );
+        assertTrue(collateralBack <= collateralIn);
+    }
+
+    function test_roundTrip_linear_sellAfterBuy_tightGap() public view {
+        // The gap between collateralIn and collateralBack should be negligible
+        uint256 collateralIn = 50_000e18;
+        uint256 tokensBought = PriceLib.calculateBuyTokens(linearSegments, 0, collateralIn);
+        uint256 collateralBack = PriceLib.calculateSellCollateral(
+            linearSegments, tokensBought, tokensBought
+        );
+        // Gap should be < spot price at the final supply (i.e., less than 1 token's worth)
+        uint256 gap = collateralIn - collateralBack;
+        uint256 spotAtEnd = PriceLib.getSpotPrice(linearSegments, tokensBought);
+        assertTrue(gap <= spotAtEnd);
+    }
+
+    function test_roundTrip_parabolic_sellAfterBuy_noProfit() public view {
+        uint256 collateralIn = 10_000e18;
+        uint256 tokensBought = PriceLib.calculateBuyTokens(parabolicSegments, 0, collateralIn);
+        uint256 collateralBack = PriceLib.calculateSellCollateral(
+            parabolicSegments, tokensBought, tokensBought
+        );
+        assertTrue(collateralBack <= collateralIn);
+    }
+
+    // ── Round-trip from non-zero supply ─────────────────────────
+
+    function test_roundTrip_linear_fromNonZeroSupply() public view {
+        uint256 supply = 200e18;
+        uint256 collateralIn = 20_000e18;
+        uint256 tokensBought = PriceLib.calculateBuyTokens(
+            linearSegments, supply, collateralIn
+        );
+        uint256 newSupply = supply + tokensBought;
+        uint256 collateralBack = PriceLib.calculateSellCollateral(
+            linearSegments, newSupply, tokensBought
+        );
+        assertTrue(collateralBack <= collateralIn);
+    }
+
+    // ── Cross-segment round-trip ────────────────────────────────
+
+    function test_roundTrip_linearParabolic_spanningBoundary() public view {
+        // Buy from supply=400, spanning the 500 boundary into parabolic
+        uint256 supply = 400e18;
+        uint256 collateralIn = 50_000_000e18;
+        uint256 tokensBought = PriceLib.calculateBuyTokens(
+            linearParabolicSegments, supply, collateralIn
+        );
+        uint256 newSupply = supply + tokensBought;
+        uint256 collateralBack = PriceLib.calculateSellCollateral(
+            linearParabolicSegments, newSupply, tokensBought
+        );
+        assertTrue(collateralBack <= collateralIn);
+    }
+
+    function test_roundTrip_threeSegments_spanningAll() public view {
+        // Buy from supply=0, spanning all 3 segments
+        uint256 collateralIn = PriceLib.integrate(threeSegments, 0, 650e18);
+        uint256 tokensBought = PriceLib.calculateBuyTokens(
+            threeSegments, 0, collateralIn
+        );
+        uint256 collateralBack = PriceLib.calculateSellCollateral(
+            threeSegments, tokensBought, tokensBought
+        );
+        assertTrue(collateralBack <= collateralIn);
+    }
+
+    // ── buy(sell(T)) ≤ T — selling and rebuying loses tokens ────
+
+    function test_roundTrip_linear_buyAfterSell_noExtraTokens() public view {
+        // Start at supply=500, sell 200 tokens, then rebuy with collateral received
+        uint256 supply = 500e18;
+        uint256 tokensSold = 200e18;
+        uint256 collateralReceived = PriceLib.calculateSellCollateral(
+            linearSegments, supply, tokensSold
+        );
+        uint256 newSupply = supply - tokensSold; // 300
+        uint256 tokensRebought = PriceLib.calculateBuyTokens(
+            linearSegments, newSupply, collateralReceived
+        );
+        // Should get back ≤ original tokens (buy rounds down)
+        assertTrue(tokensRebought <= tokensSold);
+    }
+
+    // ── Fuzz: sell(buy(C)) ≤ C ──────────────────────────────────
+
+    function testFuzz_roundTrip_linear_sellAfterBuy_noProfit(
+        uint256 collateralIn
+    ) public view {
+        collateralIn = bound(collateralIn, 1e18, 400_000e18);
+        uint256 tokensBought = PriceLib.calculateBuyTokens(
+            linearSegments, 0, collateralIn
+        );
+        if (tokensBought > 0 && tokensBought < MAX_SUPPLY) {
+            uint256 collateralBack = PriceLib.calculateSellCollateral(
+                linearSegments, tokensBought, tokensBought
+            );
+            assertTrue(collateralBack <= collateralIn);
+        }
+    }
+
+    function testFuzz_roundTrip_linear_fromRandomSupply(
+        uint256 supply,
+        uint256 collateralIn
+    ) public view {
+        supply = bound(supply, 0, 500e18);
+        collateralIn = bound(collateralIn, 1e18, 200_000e18);
+        uint256 tokensBought = PriceLib.calculateBuyTokens(
+            linearSegments, supply, collateralIn
+        );
+        if (tokensBought > 0 && supply + tokensBought < MAX_SUPPLY) {
+            uint256 newSupply = supply + tokensBought;
+            uint256 collateralBack = PriceLib.calculateSellCollateral(
+                linearSegments, newSupply, tokensBought
+            );
+            assertTrue(collateralBack <= collateralIn);
+        }
+    }
+
+    function testFuzz_roundTrip_linearParabolic_sellAfterBuy(
+        uint256 collateralIn
+    ) public view {
+        collateralIn = bound(collateralIn, 1e18, 100_000_000e18);
+        uint256 tokensBought = PriceLib.calculateBuyTokens(
+            linearParabolicSegments, 0, collateralIn
+        );
+        if (tokensBought > 0 && tokensBought < MAX_SUPPLY) {
+            uint256 collateralBack = PriceLib.calculateSellCollateral(
+                linearParabolicSegments, tokensBought, tokensBought
+            );
+            assertTrue(collateralBack <= collateralIn);
+        }
+    }
 }
