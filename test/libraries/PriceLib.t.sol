@@ -1200,7 +1200,7 @@ contract PriceLibTest is BaseTest, Helpers {
         this.exposed_getSpotPrice(segs, 10e18);
     }
 
-    function test_getSpotPrice_negativeSlope_zeroSupplyIsZero() public view {
+    function test_getSpotPrice_negativeSlope_zeroSupplyIsZero() public pure {
         // p(0) = -1·0 + 0 = 0, which is non-negative → no revert
         Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
         segs[0] = _createLinearSegment(0, 1000e18, -1e18, 0);
@@ -1217,7 +1217,7 @@ contract PriceLibTest is BaseTest, Helpers {
         this.exposed_getSpotPrice(segs, 51e18);
     }
 
-    function test_getSpotPrice_negativeSlopeWithOffset_positiveRegion() public view {
+    function test_getSpotPrice_negativeSlopeWithOffset_positiveRegion() public pure {
         // p(s) = -2·s + 100 → at s=10, p = -20 + 100 = 80
         Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
         segs[0] = _createLinearSegment(0, 1000e18, -2e18, 100e18);
@@ -1235,7 +1235,7 @@ contract PriceLibTest is BaseTest, Helpers {
         this.exposed_integrate(segs, 0, 100e18);
     }
 
-    function test_integrate_negativeSlope_zeroWidthIsZero() public view {
+    function test_integrate_negativeSlope_zeroWidthIsZero() public pure {
         // Even with negative slope, ∫[s,s] = 0 → no revert
         Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
         segs[0] = _createLinearSegment(0, 1000e18, -1e18, 0);
