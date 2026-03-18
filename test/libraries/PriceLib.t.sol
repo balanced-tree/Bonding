@@ -38,6 +38,14 @@ contract PriceLibTest is BaseTest, Helpers {
         return PriceLib.calculateSellCollateral(segments, currentSupply, tokensIn);
     }
 
+    function exposed_integrate(
+        Types.PiecewiseSegment[] memory segments,
+        uint256 fromSupply,
+        uint256 toSupply
+    ) external pure returns (uint256) {
+        return PriceLib.integrate(segments, fromSupply, toSupply);
+    }
+
     /*//////////////////////////////////////////////////////////////
                         SINGLE-SEGMENT ARRAYS
     //////////////////////////////////////////////////////////////*/
