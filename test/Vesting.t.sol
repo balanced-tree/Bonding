@@ -108,4 +108,107 @@ contract VestingTest is BaseTest {
         emit IVesting.Initialized(mockCurve);
         v.initialize(mockToken, mockCurve, CLIFF, DURATION);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                          ADD VESTING
+    //////////////////////////////////////////////////////////////*/
+
+    // ── First allocation ────────────────────────────────────────
+
+    function test_addVesting_setsTotalAmount() public {
+        vm.prank(mockCurve);
+        vesting.addVesting(alice, 1000e18);
+
+        (uint256 totalAmount,,) = vesting.schedules(alice);
+        assertEq(totalAmount, 1000e18);
+    }
+
+    function test_addVesting_setsStartTime() public {
+        vm.warp(1000);
+        vm.prank(mockCurve);
+        vesting.addVesting(alice, 1000e18);
+
+        (, uint256 startTime,) = vesting.schedules(alice);
+        assertEq(startTime, 1000);
+    }
+
+    function test_addVesting_claimedStartsAtZero() public {
+        vm.prank(mockCurve);
+        vesting.addVesting(alice, 1000e18);
+
+        (,, uint256 claimed) = vesting.schedules(alice);
+        assertEq(claimed, 0);
+    }
+
+    // ── Incremental allocations ─────────────────────────────────
+
+    function test_addVesting_secondCallIncreasesTotalAmount() public {
+        vm.startPrank(mockCurve);
+        vesting.addVesting(alice, 1000e18);
+        vesting.addVesting(alice, 500e18);
+        vm.stopPrank();
+
+        (uint256 totalAmount,,) = vesting.schedules(alice);
+        assertEq(totalAmount, 1500e18);
+    }
+
+    function test_addVesting_secondCallPreservesStartTime() public {
+        vm.warp(1000);
+        vm.prank(mockCurve);
+        vesting.addVesting(alice, 1000e18);
+
+        // Second allocation at a later time
+        vm.warp(2000);
+        vm.prank(mockCurve);
+        vesting.addVesting(alice, 500e18);
+
+        (, uint256 startTime,) = vesting.schedules(alice);
+        // startTime should still be 1000 (from first allocation)
+        assertEq(startTime, 1000);
+    }
+
+    function test_addVesting_multipleBeneficiaries() public {
+        vm.startPrank(mockCurve);
+        vesting.addVesting(alice, 1000e18);
+        vesting.addVesting(bob, 2000e18);
+        vm.stopPrank();
+
+        (uint256 aliceAmount,,) = vesting.schedules(alice);
+        (uint256 bobAmount,,) = vesting.schedules(bob);
+        assertEq(aliceAmount, 1000e18);
+        assertEq(bobAmount, 2000e18);
+    }
+
+    // ── Access control ──────────────────────────────────────────
+
+    function test_addVesting_reverts_notCurve() public {
+        vm.prank(alice);
+        vm.expectRevert(IVesting.ONLY_CURVE.selector);
+        vesting.addVesting(alice, 1000e18);
+    }
+
+    function test_addVesting_reverts_zeroBeneficiary() public {
+        vm.prank(mockCurve);
+        vm.expectRevert(IVesting.INVALID_BENEFICIARY.selector);
+        vesting.addVesting(address(0), 1000e18);
+    }
+
+    // ── Events ──────────────────────────────────────────────────
+
+    function test_addVesting_emitsEvent() public {
+        vm.prank(mockCurve);
+        vm.expectEmit(true, false, false, true);
+        emit IVesting.VestingAdded(alice, 1000e18);
+        vesting.addVesting(alice, 1000e18);
+    }
+
+    function test_addVesting_emitsEventOnSecondCall() public {
+        vm.startPrank(mockCurve);
+        vesting.addVesting(alice, 1000e18);
+
+        vm.expectEmit(true, false, false, true);
+        emit IVesting.VestingAdded(alice, 500e18);
+        vesting.addVesting(alice, 500e18);
+        vm.stopPrank();
+    }
 }
