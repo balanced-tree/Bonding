@@ -667,8 +667,9 @@ contract PriceLibTest is BaseTest, Helpers {
         from = bound(from, 0, 500e18);
         to = bound(to, from, 999e18);
         uint256 area = PriceLib.integrate(linearSegments, from, to);
+        // Manual uint256 division order differs from SD59x18 path — allow 1 wei
         uint256 expected = (to * to / 1e18 - from * from / 1e18) / 2;
-        assertEq(area, expected);
+        assertApproxEqAbs(area, expected, 1);
     }
 
     function testFuzz_integrate_linearParabolic_additivity(
