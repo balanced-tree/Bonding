@@ -594,4 +594,175 @@ contract PriceLibTest is BaseTest, Helpers {
         assertTrue(medium > small);
         assertTrue(small > 0);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    CALCULATE BUY TOKENS
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Linear single-segment: closed-form inverse ─────────────
+    // For LINEAR p(s)=s at supply=0: ∫[0,t] = t²/2 = C  →  t = √(2C)
+    // C = 5000  → t = √10000 = 100
+    // C = 125000 → t = √250000 = 500
+
+    function test_calculateBuyTokens_linear_fromZero_exact() public view {
+        // C = 5000e18 → expect t ≈ 100e18
+        uint256 tokens = PriceLib.calculateBuyTokens(linearSegments, 0, 5_000e18);
+        assertApproxEqAbs(tokens, 100e18, 1);
+    }
+
+    function test_calculateBuyTokens_linear_fromZero_larger() public view {
+        // C = 125000e18 → expect t ≈ 500e18
+        uint256 tokens = PriceLib.calculateBuyTokens(linearSegments, 0, 125_000e18);
+        assertApproxEqAbs(tokens, 500e18, 1);
+    }
+
+    function test_calculateBuyTokens_linear_fromNonZeroSupply() public view {
+        // At supply=100: ∫[100, 100+t] = 100t + t²/2 = C
+        // C = 15000 → t = -100 + √(100² + 2·15000) = -100 + √40000 = -100 + 200 = 100
+        uint256 tokens = PriceLib.calculateBuyTokens(linearSegments, 100e18, 15_000e18);
+        assertApproxEqAbs(tokens, 100e18, 1);
+    }
+
+    // ── Conservative property: never overcharges ────────────────
+
+    function test_calculateBuyTokens_linear_neverOvercharges() public view {
+        // integrate(0, tokensOut) should be ≤ collateralIn
+        uint256 collateral = 5_000e18;
+        uint256 tokens = PriceLib.calculateBuyTokens(linearSegments, 0, collateral);
+        uint256 actualCost = PriceLib.integrate(linearSegments, 0, tokens);
+        assertTrue(actualCost <= collateral);
+    }
+
+    function test_calculateBuyTokens_parabolic_neverOvercharges() public view {
+        uint256 collateral = 10_000e18;
+        uint256 tokens = PriceLib.calculateBuyTokens(parabolicSegments, 0, collateral);
+        uint256 actualCost = PriceLib.integrate(parabolicSegments, 0, tokens);
+        assertTrue(actualCost <= collateral);
+    }
+
+    // ── Precision: underspend is less than 1 token's spot price ─
+
+    function test_calculateBuyTokens_linear_precision() public view {
+        // The gap between collateralIn and actual cost should be < spotPrice(s + tokens)
+        // i.e., the "leftover" collateral couldn't buy even 1 more wei of token
+        uint256 collateral = 50_000e18;
+        uint256 tokens = PriceLib.calculateBuyTokens(linearSegments, 0, collateral);
+        uint256 actualCost = PriceLib.integrate(linearSegments, 0, tokens);
+        uint256 gap = collateral - actualCost;
+        uint256 nextPrice = PriceLib.getSpotPrice(linearSegments, tokens);
+        // gap should be negligible relative to the next token's price
+        assertTrue(gap <= nextPrice);
+    }
+
+    // ── Cap at max supply ───────────────────────────────────────
+
+    function test_calculateBuyTokens_linear_capsAtMaxSupply() public view {
+        // Max cost = ∫[0, 1000] = 500000. If collateral > max cost, get all remaining tokens.
+        uint256 tokens = PriceLib.calculateBuyTokens(linearSegments, 0, 1_000_000e18);
+        assertEq(tokens, MAX_SUPPLY);
+    }
+
+    function test_calculateBuyTokens_linear_capsAtMaxFromPartialSupply() public view {
+        // At supply=900, remaining=100. Max cost = ∫[900,1000] = 95000.
+        // Supplying 200000 should cap at 100 tokens.
+        uint256 tokens = PriceLib.calculateBuyTokens(linearSegments, 900e18, 200_000e18);
+        assertEq(tokens, 100e18);
+    }
+
+    // ── Zero collateral reverts ─────────────────────────────────
+
+    function test_calculateBuyTokens_reverts_zeroCollateral() public {
+        vm.expectRevert(PriceLib.ZERO_TOKENS.selector);
+        this.exposed_calculateBuyTokens(linearSegments, 0, 0);
+    }
+
+    // ── Tiny collateral ─────────────────────────────────────────
+
+    function test_calculateBuyTokens_linear_tinyCollateral() public view {
+        // 1 wei of collateral — should return some tiny token amount without reverting
+        uint256 tokens = PriceLib.calculateBuyTokens(linearSegments, 0, 1);
+        // May be 0 or 1 due to binary search granularity — just verify no revert
+        assertTrue(tokens <= 1);
+    }
+
+    // ── Cross-segment: purchase spanning boundary ───────────────
+
+    function test_calculateBuyTokens_linearParabolic_withinFirstSegment() public view {
+        // At supply=0, buy with 80000e18. LINEAR ∫[0,400] = 80000.
+        // Should get ≈ 400 tokens (all within linear segment)
+        uint256 tokens = PriceLib.calculateBuyTokens(linearParabolicSegments, 0, 80_000e18);
+        assertApproxEqAbs(tokens, 400e18, 1);
+    }
+
+    function test_calculateBuyTokens_linearParabolic_spanningBoundary() public view {
+        // At supply=0, collateral = ∫[0,500] + ∫[500,600]
+        // = 125000 + ~30333333 = ~30458333
+        // Should get ≈ 600 tokens spanning the boundary
+        uint256 collateral = PriceLib.integrate(linearParabolicSegments, 0, 600e18);
+        uint256 tokens = PriceLib.calculateBuyTokens(linearParabolicSegments, 0, collateral);
+        assertApproxEqAbs(tokens, 600e18, 1);
+    }
+
+    function test_calculateBuyTokens_linearParabolic_neverOvercharges() public view {
+        uint256 collateral = 1_000_000e18;
+        uint256 tokens = PriceLib.calculateBuyTokens(linearParabolicSegments, 200e18, collateral);
+        uint256 actualCost = PriceLib.integrate(linearParabolicSegments, 200e18, 200e18 + tokens);
+        assertTrue(actualCost <= collateral);
+    }
+
+    // ── Three-segment ───────────────────────────────────────────
+
+    function test_calculateBuyTokens_threeSegments_spanningAll() public view {
+        // Buy from supply=0 with enough to span all 3 segments
+        uint256 collateral = PriceLib.integrate(threeSegments, 0, 650e18);
+        uint256 tokens = PriceLib.calculateBuyTokens(threeSegments, 0, collateral);
+        assertApproxEqAbs(tokens, 650e18, 1);
+    }
+
+    function test_calculateBuyTokens_threeSegments_neverOvercharges() public view {
+        uint256 collateral = PriceLib.integrate(threeSegments, 0, 650e18);
+        uint256 tokens = PriceLib.calculateBuyTokens(threeSegments, 0, collateral);
+        uint256 actualCost = PriceLib.integrate(threeSegments, 0, tokens);
+        assertTrue(actualCost <= collateral);
+    }
+
+    // ── Monotonicity: more collateral → more tokens ─────────────
+
+    function test_calculateBuyTokens_linear_monotonicity() public view {
+        uint256 tokens1 = PriceLib.calculateBuyTokens(linearSegments, 0, 1_000e18);
+        uint256 tokens2 = PriceLib.calculateBuyTokens(linearSegments, 0, 5_000e18);
+        uint256 tokens3 = PriceLib.calculateBuyTokens(linearSegments, 0, 50_000e18);
+        assertTrue(tokens3 > tokens2);
+        assertTrue(tokens2 > tokens1);
+    }
+
+    // ── Fuzz ────────────────────────────────────────────────────
+
+    function testFuzz_calculateBuyTokens_linear_neverOvercharges(uint256 collateral) public view {
+        // For any collateral, actual cost ≤ collateralIn
+        collateral = bound(collateral, 1, 400_000e18);
+        uint256 tokens = PriceLib.calculateBuyTokens(linearSegments, 0, collateral);
+        if (tokens > 0 && tokens < MAX_SUPPLY) {
+            uint256 actualCost = PriceLib.integrate(linearSegments, 0, tokens);
+            assertTrue(actualCost <= collateral);
+        }
+    }
+
+    function testFuzz_calculateBuyTokens_linear_monotonicity(uint256 c1, uint256 c2) public view {
+        c1 = bound(c1, 1, 200_000e18);
+        c2 = bound(c2, c1, 400_000e18);
+        uint256 t1 = PriceLib.calculateBuyTokens(linearSegments, 0, c1);
+        uint256 t2 = PriceLib.calculateBuyTokens(linearSegments, 0, c2);
+        assertTrue(t2 >= t1);
+    }
+
+    function testFuzz_calculateBuyTokens_linearParabolic_neverOvercharges(uint256 collateral) public view {
+        collateral = bound(collateral, 1, 100_000_000e18);
+        uint256 supply = 100e18;
+        uint256 tokens = PriceLib.calculateBuyTokens(linearParabolicSegments, supply, collateral);
+        if (tokens > 0 && supply + tokens < MAX_SUPPLY) {
+            uint256 actualCost = PriceLib.integrate(linearParabolicSegments, supply, supply + tokens);
+            assertTrue(actualCost <= collateral);
+        }
+    }
 }
