@@ -603,6 +603,114 @@ contract PriceLibTest is BaseTest, Helpers {
         assertTrue(small > 0);
     }
 
+    // ── Integrate fuzz tests ────────────────────────────────────
+
+    function testFuzz_integrate_linear_nonNegative(
+        uint256 from,
+        uint256 to
+    ) public view {
+        from = bound(from, 0, 998e18);
+        to = bound(to, from, 999e18);
+        uint256 area = PriceLib.integrate(linearSegments, from, to);
+        assertTrue(area >= 0);
+    }
+
+    function testFuzz_integrate_linear_monotonicity(
+        uint256 from,
+        uint256 to1,
+        uint256 to2
+    ) public view {
+        // Wider range → larger integral
+        from = bound(from, 0, 500e18);
+        to1 = bound(to1, from, 750e18);
+        to2 = bound(to2, to1, 999e18);
+        uint256 area1 = PriceLib.integrate(linearSegments, from, to1);
+        uint256 area2 = PriceLib.integrate(linearSegments, from, to2);
+        assertTrue(area2 >= area1);
+    }
+
+    function testFuzz_integrate_linear_additivity(
+        uint256 a,
+        uint256 b,
+        uint256 c
+    ) public view {
+        // ∫[a,c] = ∫[a,b] + ∫[b,c]
+        a = bound(a, 0, 300e18);
+        b = bound(b, a, 600e18);
+        c = bound(c, b, 999e18);
+        uint256 full = PriceLib.integrate(linearSegments, a, c);
+        uint256 first = PriceLib.integrate(linearSegments, a, b);
+        uint256 second = PriceLib.integrate(linearSegments, b, c);
+        assertEq(full, first + second);
+    }
+
+    function testFuzz_integrate_parabolic_additivity(
+        uint256 a,
+        uint256 b,
+        uint256 c
+    ) public view {
+        // ∫[a,c] ≈ ∫[a,b] + ∫[b,c]  (±1 from /3 truncation)
+        a = bound(a, 0, 300e18);
+        b = bound(b, a, 600e18);
+        c = bound(c, b, 999e18);
+        uint256 full = PriceLib.integrate(parabolicSegments, a, c);
+        uint256 first = PriceLib.integrate(parabolicSegments, a, b);
+        uint256 second = PriceLib.integrate(parabolicSegments, b, c);
+        assertApproxEqAbs(full, first + second, 1);
+    }
+
+    function testFuzz_integrate_linear_matchesFormula(
+        uint256 from,
+        uint256 to
+    ) public view {
+        // ∫[from,to] s ds = to²/2 - from²/2
+        from = bound(from, 0, 500e18);
+        to = bound(to, from, 999e18);
+        uint256 area = PriceLib.integrate(linearSegments, from, to);
+        uint256 expected = (to * to / 1e18 - from * from / 1e18) / 2;
+        assertEq(area, expected);
+    }
+
+    function testFuzz_integrate_linearParabolic_additivity(
+        uint256 a,
+        uint256 b,
+        uint256 c
+    ) public view {
+        // Cross-segment additivity: ∫[a,c] = ∫[a,b] + ∫[b,c]
+        a = bound(a, 0, 300e18);
+        b = bound(b, a, 600e18);
+        c = bound(c, b, 999e18);
+        uint256 full = PriceLib.integrate(linearParabolicSegments, a, c);
+        uint256 first = PriceLib.integrate(linearParabolicSegments, a, b);
+        uint256 second = PriceLib.integrate(linearParabolicSegments, b, c);
+        // Parabolic /3 truncation can introduce up to 1 wei discrepancy
+        assertApproxEqAbs(full, first + second, 1);
+    }
+
+    function testFuzz_integrate_threeSegments_nonNegative(
+        uint256 from,
+        uint256 to
+    ) public view {
+        from = bound(from, 0, 698e18);
+        to = bound(to, from, 699e18);
+        uint256 area = PriceLib.integrate(threeSegments, from, to);
+        assertTrue(area >= 0);
+    }
+
+    function testFuzz_integrate_threeSegments_additivity(
+        uint256 a,
+        uint256 b,
+        uint256 c
+    ) public view {
+        a = bound(a, 0, 200e18);
+        b = bound(b, a, 450e18);
+        c = bound(c, b, 699e18);
+        uint256 full = PriceLib.integrate(threeSegments, a, c);
+        uint256 first = PriceLib.integrate(threeSegments, a, b);
+        uint256 second = PriceLib.integrate(threeSegments, b, c);
+        assertApproxEqAbs(full, first + second, 1);
+    }
+
     /*//////////////////////////////////////////////////////////////
                     CALCULATE BUY TOKENS
     //////////////////////////////////////////////////////////////*/
