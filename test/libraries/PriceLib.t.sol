@@ -773,4 +773,148 @@ contract PriceLibTest is BaseTest, Helpers {
             assertTrue(actualCost <= collateral);
         }
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    CALCULATE SELL COLLATERAL
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Linear single-segment: known values ─────────────────────
+    // sell(supply, tokens) = ∫[supply - tokens, supply]
+    // For LINEAR p(s)=s: ∫[a,b] = b²/2 - a²/2
+
+    function test_calculateSellCollateral_linear_sellAllFromHundred() public view {
+        // At supply=100, sell 100 tokens: ∫[0,100] = 100²/2 = 5000
+        uint256 collateral = PriceLib.calculateSellCollateral(linearSegments, 100e18, 100e18);
+        assertEq(collateral, 5_000e18);
+    }
+
+    function test_calculateSellCollateral_linear_sellPartial() public view {
+        // At supply=200, sell 100 tokens: ∫[100,200] = (200²-100²)/2 = 15000
+        uint256 collateral = PriceLib.calculateSellCollateral(linearSegments, 200e18, 100e18);
+        assertEq(collateral, 15_000e18);
+    }
+
+    function test_calculateSellCollateral_linear_sellAllFromFiveHundred() public view {
+        // At supply=500, sell all 500: ∫[0,500] = 500²/2 = 125000
+        uint256 collateral = PriceLib.calculateSellCollateral(linearSegments, 500e18, 500e18);
+        assertEq(collateral, 125_000e18);
+    }
+
+    // ── Equivalence with integrate ──────────────────────────────
+
+    function test_calculateSellCollateral_linear_matchesIntegrate() public view {
+        // sell(supply=300, tokens=150) should equal integrate(150, 300)
+        uint256 sellResult = PriceLib.calculateSellCollateral(linearSegments, 300e18, 150e18);
+        uint256 integrateResult = PriceLib.integrate(linearSegments, 150e18, 300e18);
+        assertEq(sellResult, integrateResult);
+    }
+
+    function test_calculateSellCollateral_parabolic_matchesIntegrate() public view {
+        // sell(supply=100, tokens=50) should equal integrate(50, 100)
+        uint256 sellResult = PriceLib.calculateSellCollateral(parabolicSegments, 100e18, 50e18);
+        uint256 integrateResult = PriceLib.integrate(parabolicSegments, 50e18, 100e18);
+        assertEq(sellResult, integrateResult);
+    }
+
+    // ── Parabolic: known value ──────────────────────────────────
+
+    function test_calculateSellCollateral_parabolic_sellAllFromTen() public view {
+        // At supply=10, sell 10 tokens: ∫[0,10] s² ds = 10³/3 ≈ 333.333e18
+        uint256 collateral = PriceLib.calculateSellCollateral(parabolicSegments, 10e18, 10e18);
+        assertApproxEqAbs(collateral, 333_333333333333333333, 2);
+    }
+
+    // ── Zero tokens reverts ─────────────────────────────────────
+
+    function test_calculateSellCollateral_reverts_zeroTokens() public {
+        vm.expectRevert(PriceLib.ZERO_TOKENS.selector);
+        this.exposed_calculateSellCollateral(linearSegments, 100e18, 0);
+    }
+
+    // ── Sell back to zero supply ────────────────────────────────
+
+    function test_calculateSellCollateral_linear_sellBackToZero() public view {
+        // At supply=MAX_SUPPLY-1, sell everything back to 0
+        uint256 supply = 999e18;
+        uint256 collateral = PriceLib.calculateSellCollateral(linearSegments, supply, supply);
+        // Should equal ∫[0, 999] = 999²/2
+        uint256 expected = PriceLib.integrate(linearSegments, 0, supply);
+        assertEq(collateral, expected);
+    }
+
+    // ── Cross-segment: sell spanning boundary ───────────────────
+
+    function test_calculateSellCollateral_linearParabolic_withinSecondSegment() public view {
+        // At supply=600, sell 50 (entirely in PARABOLIC [500,1000))
+        // ∫[550, 600] = (600³-550³)/3
+        uint256 collateral = PriceLib.calculateSellCollateral(linearParabolicSegments, 600e18, 50e18);
+        uint256 expected = PriceLib.integrate(linearParabolicSegments, 550e18, 600e18);
+        assertEq(collateral, expected);
+    }
+
+    function test_calculateSellCollateral_linearParabolic_spanningBoundary() public view {
+        // At supply=600, sell 200 → ∫[400, 600] spans LINEAR and PARABOLIC
+        uint256 collateral = PriceLib.calculateSellCollateral(linearParabolicSegments, 600e18, 200e18);
+        uint256 expected = PriceLib.integrate(linearParabolicSegments, 400e18, 600e18);
+        assertEq(collateral, expected);
+    }
+
+    function test_calculateSellCollateral_linearParabolic_sellAllFromBoundary() public view {
+        // At supply=500 (exact boundary), sell all 500 → entirely LINEAR ∫[0,500] = 125000
+        uint256 collateral = PriceLib.calculateSellCollateral(linearParabolicSegments, 500e18, 500e18);
+        assertEq(collateral, 125_000e18);
+    }
+
+    // ── Three-segment sell ──────────────────────────────────────
+
+    function test_calculateSellCollateral_threeSegments_withinExponential() public view {
+        // At supply=650, sell 30 → entirely in EXPONENTIAL [600,700)
+        uint256 collateral = PriceLib.calculateSellCollateral(threeSegments, 650e18, 30e18);
+        uint256 expected = PriceLib.integrate(threeSegments, 620e18, 650e18);
+        assertEq(collateral, expected);
+    }
+
+    function test_calculateSellCollateral_threeSegments_spanningAllThree() public view {
+        // At supply=650, sell 650 → spans all 3 segments back to zero
+        uint256 collateral = PriceLib.calculateSellCollateral(threeSegments, 650e18, 650e18);
+        uint256 expected = PriceLib.integrate(threeSegments, 0, 650e18);
+        assertEq(collateral, expected);
+    }
+
+    // ── Monotonicity: more tokens sold → more collateral ────────
+
+    function test_calculateSellCollateral_linear_monotonicity() public view {
+        uint256 c1 = PriceLib.calculateSellCollateral(linearSegments, 500e18, 50e18);
+        uint256 c2 = PriceLib.calculateSellCollateral(linearSegments, 500e18, 200e18);
+        uint256 c3 = PriceLib.calculateSellCollateral(linearSegments, 500e18, 500e18);
+        assertTrue(c3 > c2);
+        assertTrue(c2 > c1);
+    }
+
+    // ── Fuzz ────────────────────────────────────────────────────
+
+    function testFuzz_calculateSellCollateral_linear_matchesIntegrate(uint256 supply, uint256 tokens) public view {
+        supply = bound(supply, 1e18, 999e18);
+        tokens = bound(tokens, 1e18, supply);
+        uint256 sellResult = PriceLib.calculateSellCollateral(linearSegments, supply, tokens);
+        uint256 integrateResult = PriceLib.integrate(linearSegments, supply - tokens, supply);
+        assertEq(sellResult, integrateResult);
+    }
+
+    function testFuzz_calculateSellCollateral_linear_monotonicity(uint256 t1, uint256 t2) public view {
+        // Selling more tokens from the same supply → more collateral
+        t1 = bound(t1, 1e18, 250e18);
+        t2 = bound(t2, t1, 500e18);
+        uint256 c1 = PriceLib.calculateSellCollateral(linearSegments, 500e18, t1);
+        uint256 c2 = PriceLib.calculateSellCollateral(linearSegments, 500e18, t2);
+        assertTrue(c2 >= c1);
+    }
+
+    function testFuzz_calculateSellCollateral_linearParabolic_matchesIntegrate(uint256 supply, uint256 tokens) public view {
+        supply = bound(supply, 1e18, 999e18);
+        tokens = bound(tokens, 1e18, supply);
+        uint256 sellResult = PriceLib.calculateSellCollateral(linearParabolicSegments, supply, tokens);
+        uint256 integrateResult = PriceLib.integrate(linearParabolicSegments, supply - tokens, supply);
+        assertEq(sellResult, integrateResult);
+    }
 }
