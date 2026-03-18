@@ -425,4 +425,165 @@ contract PriceLibTest is BaseTest, Helpers {
         uint256 price = PriceLib.getSpotPrice(threeSegments, s);
         assertTrue(price >= 0); // just verifying no revert
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    INTEGRATE: SINGLE-SEGMENT
+    //////////////////////////////////////////////////////////////*/
+
+    // ── LINEAR ∫s ds = s²/2 (exact — division by 2 is lossless in binary) ──
+
+    function test_integrate_linear_zeroToHundred() public view {
+        // ∫[0,100] s ds = 100²/2 = 5000
+        uint256 area = PriceLib.integrate(linearSegments, 0, 100e18);
+        assertEq(area, 5_000e18);
+    }
+
+    function test_integrate_linear_zeroToFiveHundred() public view {
+        // ∫[0,500] s ds = 500²/2 = 125000
+        uint256 area = PriceLib.integrate(linearSegments, 0, 500e18);
+        assertEq(area, 125_000e18);
+    }
+
+    function test_integrate_linear_subRange() public view {
+        // ∫[100,200] s ds = 200²/2 - 100²/2 = 20000 - 5000 = 15000
+        uint256 area = PriceLib.integrate(linearSegments, 100e18, 200e18);
+        assertEq(area, 15_000e18);
+    }
+
+    function test_integrate_linear_zeroWidth() public view {
+        // ∫[50,50] = 0
+        uint256 area = PriceLib.integrate(linearSegments, 50e18, 50e18);
+        assertEq(area, 0);
+    }
+
+    // ── PARABOLIC ∫s² ds = s³/3 (±1 wei from division by 3) ───
+
+    function test_integrate_parabolic_zeroToTen() public view {
+        // ∫[0,10] s² ds = 10³/3 ≈ 333.333e18
+        uint256 area = PriceLib.integrate(parabolicSegments, 0, 10e18);
+        assertApproxEqAbs(area, 333_333333333333333333, 2);
+    }
+
+    function test_integrate_parabolic_zeroToHundred() public view {
+        // ∫[0,100] s² ds = 100³/3 ≈ 333333.333e18
+        uint256 area = PriceLib.integrate(parabolicSegments, 0, 100e18);
+        assertApproxEqAbs(area, 333_333_333333333333333333, 2);
+    }
+
+    function test_integrate_parabolic_subRange() public view {
+        // ∫[10,100] s² ds = (100³ - 10³)/3 = (1000000 - 1000)/3 = 999000/3 = 333000
+        uint256 area = PriceLib.integrate(parabolicSegments, 10e18, 100e18);
+        assertApproxEqAbs(area, 333_000_000000000000000000, 2);
+    }
+
+    // ── Single-segment additivity ──────────────────────────────
+
+    function test_integrate_linear_additivity() public view {
+        // ∫[0,200] = ∫[0,100] + ∫[100,200]
+        uint256 full = PriceLib.integrate(linearSegments, 0, 200e18);
+        uint256 first = PriceLib.integrate(linearSegments, 0, 100e18);
+        uint256 second = PriceLib.integrate(linearSegments, 100e18, 200e18);
+        assertEq(full, first + second);
+    }
+
+    function test_integrate_parabolic_additivity() public view {
+        // ∫[0,200] ≈ ∫[0,100] + ∫[100,200]
+        uint256 full = PriceLib.integrate(parabolicSegments, 0, 200e18);
+        uint256 first = PriceLib.integrate(parabolicSegments, 0, 100e18);
+        uint256 second = PriceLib.integrate(parabolicSegments, 100e18, 200e18);
+        // SD59x18 truncation from /3 may introduce up to 1 wei discrepancy
+        assertApproxEqAbs(full, first + second, 1);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    INTEGRATE: CROSS-SEGMENT
+    //////////////////////////////////////////////////////////////*/
+
+    // ── Two-segment: LINEAR [0,500) → PARABOLIC [500,1000) ────
+
+    function test_integrate_linearParabolic_withinFirstSegment() public view {
+        // ∫[0,400] entirely in LINEAR = 400²/2 = 80000
+        uint256 area = PriceLib.integrate(linearParabolicSegments, 0, 400e18);
+        assertEq(area, 80_000e18);
+    }
+
+    function test_integrate_linearParabolic_withinSecondSegment() public view {
+        // ∫[500,600] entirely in PARABOLIC = (600³ - 500³)/3
+        uint256 area = PriceLib.integrate(linearParabolicSegments, 500e18, 600e18);
+        // (216_000_000 - 125_000_000)/3 = 30_333_333.333...
+        assertApproxEqRel(area, 30_333_333_333333333333333333, 0.0001e18);
+    }
+
+    function test_integrate_linearParabolic_spanningBoundary() public view {
+        // ∫[400,600] = LINEAR∫[400,500] + PARABOLIC∫[500,600]
+        //            = (500²-400²)/2 + (600³-500³)/3 = 45000 + 30333333.333
+        uint256 area = PriceLib.integrate(linearParabolicSegments, 400e18, 600e18);
+        // Verify via separate integrations
+        uint256 linearPart = PriceLib.integrate(linearParabolicSegments, 400e18, 500e18);
+        uint256 parabolicPart = PriceLib.integrate(linearParabolicSegments, 500e18, 600e18);
+        // The library sums contributions in a single pass, which should
+        // exactly equal the two separate calls (same arithmetic path)
+        assertEq(area, linearPart + parabolicPart);
+    }
+
+    function test_integrate_linearParabolic_fullRange() public view {
+        // ∫[0,999] — nearly the full curve
+        uint256 area = PriceLib.integrate(linearParabolicSegments, 0, 999e18);
+        // Should be LINEAR∫[0,500] + PARABOLIC∫[500,999]
+        // LINEAR part = 125000e18 (exact)
+        uint256 linearOnly = PriceLib.integrate(linearParabolicSegments, 0, 500e18);
+        assertEq(linearOnly, 125_000e18);
+        assertTrue(area > linearOnly);
+    }
+
+    function test_integrate_linearParabolic_crossSegmentAdditivity() public view {
+        // ∫[0,600] = ∫[0,400] + ∫[400,600]
+        uint256 full = PriceLib.integrate(linearParabolicSegments, 0, 600e18);
+        uint256 first = PriceLib.integrate(linearParabolicSegments, 0, 400e18);
+        uint256 second = PriceLib.integrate(linearParabolicSegments, 400e18, 600e18);
+        assertEq(full, first + second);
+    }
+
+    function test_integrate_linearParabolic_crossSegmentAdditivity_atBoundary() public view {
+        // Split exactly at the segment boundary: ∫[0,700] = ∫[0,500] + ∫[500,700]
+        uint256 full = PriceLib.integrate(linearParabolicSegments, 0, 700e18);
+        uint256 first = PriceLib.integrate(linearParabolicSegments, 0, 500e18);
+        uint256 second = PriceLib.integrate(linearParabolicSegments, 500e18, 700e18);
+        assertEq(full, first + second);
+    }
+
+    // ── Three-segment: LINEAR [0,200) → PARABOLIC [200,600) → EXP [600,700) ──
+
+    function test_integrate_threeSegments_firstSegmentOnly() public view {
+        // ∫[0,200] entirely in LINEAR = 200²/2 = 20000
+        uint256 area = PriceLib.integrate(threeSegments, 0, 200e18);
+        assertEq(area, 20_000e18);
+    }
+
+    function test_integrate_threeSegments_spanningFirstTwo() public view {
+        // ∫[0,400] = LINEAR∫[0,200] + PARABOLIC∫[200,400]
+        uint256 area = PriceLib.integrate(threeSegments, 0, 400e18);
+        uint256 part1 = PriceLib.integrate(threeSegments, 0, 200e18);
+        uint256 part2 = PriceLib.integrate(threeSegments, 200e18, 400e18);
+        assertEq(area, part1 + part2);
+    }
+
+    function test_integrate_threeSegments_spanningAllThree() public view {
+        // ∫[0,650] = ∫[0,200] + ∫[200,600] + ∫[600,650]
+        uint256 full = PriceLib.integrate(threeSegments, 0, 650e18);
+        uint256 part1 = PriceLib.integrate(threeSegments, 0, 200e18);
+        uint256 part2 = PriceLib.integrate(threeSegments, 200e18, 600e18);
+        uint256 part3 = PriceLib.integrate(threeSegments, 600e18, 650e18);
+        assertApproxEqAbs(full, part1 + part2 + part3, 1);
+    }
+
+    function test_integrate_threeSegments_monotonicity() public view {
+        // Wider range → larger integral (prices are non-negative)
+        uint256 small = PriceLib.integrate(threeSegments, 0, 200e18);
+        uint256 medium = PriceLib.integrate(threeSegments, 0, 400e18);
+        uint256 large = PriceLib.integrate(threeSegments, 0, 650e18);
+        assertTrue(large > medium);
+        assertTrue(medium > small);
+        assertTrue(small > 0);
+    }
 }
