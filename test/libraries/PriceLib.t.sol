@@ -1185,4 +1185,89 @@ contract PriceLibTest is BaseTest, Helpers {
             assertTrue(collateralBack <= collateralIn);
         }
     }
+
+    /*//////////////////////////////////////////////////////////////
+                    ERROR PATHS: NEGATIVE PRICE / AREA
+    //////////////////////////////////////////////////////////////*/
+
+    // ── NEGATIVE_PRICE: linear with negative slope, no intercept ─
+
+    function test_getSpotPrice_reverts_negativePrice() public {
+        // p(s) = -1·s + 0 → negative for any s > 0
+        Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
+        segs[0] = _createLinearSegment(0, 1000e18, -1e18, 0);
+        vm.expectRevert(PriceLib.NEGATIVE_PRICE.selector);
+        this.exposed_getSpotPrice(segs, 10e18);
+    }
+
+    function test_getSpotPrice_negativeSlope_zeroSupplyIsZero() public view {
+        // p(0) = -1·0 + 0 = 0, which is non-negative → no revert
+        Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
+        segs[0] = _createLinearSegment(0, 1000e18, -1e18, 0);
+        uint256 price = PriceLib.getSpotPrice(segs, 0);
+        assertEq(price, 0);
+    }
+
+    function test_getSpotPrice_reverts_negativePriceWithOffset() public {
+        // p(s) = -2·s + 100 → negative for s > 50
+        Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
+        segs[0] = _createLinearSegment(0, 1000e18, -2e18, 100e18);
+        // At s=51, p = -2·51 + 100 = -2 → negative
+        vm.expectRevert(PriceLib.NEGATIVE_PRICE.selector);
+        this.exposed_getSpotPrice(segs, 51e18);
+    }
+
+    function test_getSpotPrice_negativeSlopeWithOffset_positiveRegion() public view {
+        // p(s) = -2·s + 100 → at s=10, p = -20 + 100 = 80
+        Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
+        segs[0] = _createLinearSegment(0, 1000e18, -2e18, 100e18);
+        uint256 price = PriceLib.getSpotPrice(segs, 10e18);
+        assertEq(price, 80e18);
+    }
+
+    // ── NEGATIVE_AREA: integrate over a negative-price region ────
+
+    function test_integrate_reverts_negativeArea() public {
+        // p(s) = -1·s + 0 → ∫[0,100] = -100²/2 = -5000
+        Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
+        segs[0] = _createLinearSegment(0, 1000e18, -1e18, 0);
+        vm.expectRevert(PriceLib.NEGATIVE_AREA.selector);
+        this.exposed_integrate(segs, 0, 100e18);
+    }
+
+    function test_integrate_negativeSlope_zeroWidthIsZero() public view {
+        // Even with negative slope, ∫[s,s] = 0 → no revert
+        Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
+        segs[0] = _createLinearSegment(0, 1000e18, -1e18, 0);
+        uint256 area = PriceLib.integrate(segs, 50e18, 50e18);
+        assertEq(area, 0);
+    }
+
+    // ── NEGATIVE_AREA via calculateSellCollateral ────────────────
+
+    function test_calculateSellCollateral_reverts_negativeArea() public {
+        // Selling on a negative-slope curve → integrate returns negative
+        Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
+        segs[0] = _createLinearSegment(0, 1000e18, -1e18, 0);
+        vm.expectRevert(PriceLib.NEGATIVE_AREA.selector);
+        this.exposed_calculateSellCollateral(segs, 100e18, 50e18);
+    }
+
+    // ── Parabolic negative: p(s) = -s² ──────────────────────────
+
+    function test_getSpotPrice_reverts_negativeParabolic() public {
+        // p(s) = -1·s² → negative for any s > 0
+        Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
+        segs[0] = _createParabolicSegment(0, 1000e18, -1e18, 0, 0);
+        vm.expectRevert(PriceLib.NEGATIVE_PRICE.selector);
+        this.exposed_getSpotPrice(segs, 10e18);
+    }
+
+    function test_integrate_reverts_negativeParabolicArea() public {
+        // ∫[0,10] -s² ds = -10³/3 → negative
+        Types.PiecewiseSegment[] memory segs = new Types.PiecewiseSegment[](1);
+        segs[0] = _createParabolicSegment(0, 1000e18, -1e18, 0, 0);
+        vm.expectRevert(PriceLib.NEGATIVE_AREA.selector);
+        this.exposed_integrate(segs, 0, 10e18);
+    }
 }
